@@ -17,6 +17,9 @@
   <!-- FontAwesome 6 Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
+  <!-- SheetJS (xlsx) CDN for Client-Side Excel Reading & Template Generation -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -663,16 +666,19 @@
           <section id="sec-master" class="hidden space-y-6">
             <!-- Sub-navigation Tabs for Master Data -->
             <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-2 rounded-2xl border border-slate-200/80 shadow-sm">
-              <div class="flex items-center gap-1.5">
+              <div class="flex flex-wrap items-center gap-1.5">
                 <button type="button" id="subtab-btn-emp" class="px-4 py-2 rounded-xl text-xs font-bold bg-brand-600 text-white shadow-sm transition">
                   <i class="fa-solid fa-users-gear mr-1.5"></i> Master Karyawan
                 </button>
                 <button type="button" id="subtab-btn-dept" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition">
-                  <i class="fa-solid fa-Sitemap mr-1.5"></i> Master Departemen
+                  <i class="fa-solid fa-sitemap mr-1.5"></i> Master Departemen
+                </button>
+                <button type="button" id="subtab-btn-import" class="px-4 py-2 rounded-xl text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 transition flex items-center gap-1.5">
+                  <i class="fa-solid fa-file-excel"></i> Import Excel (.xlsx / .xls)
                 </button>
               </div>
-              <div class="text-[11px] text-slate-500 px-2 hidden sm:block">
-                <i class="fa-solid fa-bolt text-amber-500 mr-1"></i> Setiap perubahan langsung memperbarui Dropdown Input Otomatis secara *real-time*.
+              <div class="text-[11px] text-slate-500 px-2 hidden xl:block">
+                <i class="fa-solid fa-bolt text-amber-500 mr-1"></i> Setiap perubahan & hasil import langsung memperbarui Dropdown Input Otomatis secara *real-time*.
               </div>
             </div>
 
@@ -803,6 +809,138 @@
                 </div>
               </div>
             </div>
+
+            <!-- SUB-PANEL C: IMPORT MASSAL EXCEL (.XLSX / .XLS) -->
+            <div id="master-panel-import" class="hidden space-y-6">
+              <!-- Top Instructions & Template Download Card -->
+              <div class="glass-card rounded-2xl p-5 sm:p-6">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 mb-5 border-b border-slate-100">
+                  <div class="flex items-start gap-3.5">
+                    <div class="w-11 h-11 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-lg shrink-0 shadow-xs">
+                      <i class="fa-solid fa-file-excel"></i>
+                    </div>
+                    <div>
+                      <h4 class="text-base font-bold text-slate-900">Import Massal Data Karyawan via Excel</h4>
+                      <p class="text-xs text-slate-500 mt-0.5">
+                        Unggah file Excel (<code class="bg-slate-100 px-1 rounded">.xlsx</code> atau <code class="bg-slate-100 px-1 rounded">.xls</code>) dengan kolom wajib: <strong>Nama Karyawan</strong>, <strong>NIK</strong>, <strong>Departemen</strong>, dan <strong>Jabatan</strong>.
+                      </p>
+                    </div>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-2 shrink-0">
+                    <button type="button" id="btn-download-template" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition flex items-center gap-2">
+                      <i class="fa-solid fa-download"></i> Download Template Excel (.xlsx)
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Upload Dropzone & Format Guide Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                  <!-- Dropzone Area -->
+                  <div class="lg:col-span-2">
+                    <label for="excel-file-input" id="excel-dropzone" class="cursor-pointer group flex flex-col items-center justify-center border-2 border-dashed border-slate-300 hover:border-brand-500 bg-slate-50/70 hover:bg-blue-50/40 rounded-2xl p-6 sm:p-8 text-center transition-all">
+                      <input type="file" id="excel-file-input" accept=".xlsx,.xls" class="hidden" />
+                      <div class="w-14 h-14 rounded-2xl bg-white shadow-sm border border-slate-200 text-brand-600 group-hover:scale-105 transition-transform flex items-center justify-center text-2xl mb-3">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                      </div>
+                      <div class="text-sm font-bold text-slate-800 group-hover:text-brand-700">
+                        Klik untuk memilih file Excel atau tarik & lepas (Drag & Drop) di sini
+                      </div>
+                      <p class="text-xs text-slate-500 mt-1">
+                        Mendukung format Microsoft Excel <strong>.xlsx</strong> dan <strong>.xls</strong>
+                      </p>
+                      <div id="excel-selected-file-badge" class="hidden mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-100 text-brand-800 text-xs font-semibold">
+                        <i class="fa-solid fa-check-circle text-brand-600"></i>
+                        <span id="excel-selected-filename">nama_file.xlsx</span>
+                      </div>
+                    </label>
+                  </div>
+
+                  <!-- Rules & Auto-Sync Info Box -->
+                  <div class="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 space-y-2.5 text-xs text-slate-600">
+                    <div class="font-bold text-slate-800 flex items-center gap-2">
+                      <i class="fa-solid fa-shield-check text-brand-600"></i> Ketentuan Validasi Otomatis:
+                    </div>
+                    <ul class="space-y-1.5 text-[11px] text-slate-600 list-disc pl-4">
+                      <li><strong>Header Wajib:</strong> <code class="bg-white px-1 rounded border">Nama Karyawan</code>, <code class="bg-white px-1 rounded border">NIK</code>, <code class="bg-white px-1 rounded border">Departemen</code>, <code class="bg-white px-1 rounded border">Jabatan</code> (Opsional: <code class="bg-white px-1 rounded border">Password</code>).</li>
+                      <li><strong>Anti-Duplikat 2 Lapis:</strong> Sistem otomatis menolak NIK yang sudah ada di database maupun NIK ganda di dalam file Excel yang sama.</li>
+                      <li><strong>Auto-Create Departemen:</strong> Jika nama Departemen pada Excel belum terdaftar, sistem otomatis membuatkannya di Master Departemen.</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <!-- Error Notification Banner for Wrong Header / Corrupt File -->
+                <div id="excel-error-banner" class="hidden mt-5 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 flex items-start gap-3">
+                  <i class="fa-solid fa-circle-xmark text-rose-600 text-lg mt-0.5 shrink-0"></i>
+                  <div class="flex-1 text-xs">
+                    <div id="excel-error-title" class="font-extrabold text-sm text-rose-900">Format Kolom Excel Tidak Sesuai</div>
+                    <p id="excel-error-desc" class="mt-1 leading-relaxed text-rose-700"></p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Preview & Validation Results Card (Shown after reading Excel) -->
+              <div id="excel-preview-container" class="hidden glass-card rounded-2xl p-5 sm:p-6 space-y-5">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                  <div>
+                    <h4 class="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+                      <i class="fa-solid fa-magnifying-glass-chart text-brand-600"></i>
+                      Preview & Validasi Data Sebelum Penyimpanan
+                    </h4>
+                    <p class="text-xs text-slate-500 mt-0.5">
+                      Periksa kembali hasil pembacaan file Excel di bawah ini. Hanya baris berstatus <strong>Valid</strong> yang akan disimpan ke database.
+                    </p>
+                  </div>
+                  <div class="flex items-center gap-2.5 shrink-0">
+                    <button type="button" id="btn-clear-excel-preview" class="px-3.5 py-2 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 font-semibold text-xs transition">
+                      <i class="fa-solid fa-trash-can mr-1"></i> Batal / Ganti File
+                    </button>
+                    <button type="button" id="btn-commit-excel-import" class="px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-xs shadow-md shadow-brand-600/20 transition flex items-center gap-2">
+                      <i class="fa-solid fa-cloud-arrow-up"></i>
+                      <span id="btn-commit-excel-text">Simpan Data Valid ke Database</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- 4 Summary Stat Pills -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
+                    <div class="text-[11px] font-semibold text-slate-500">Total Baris Terbaca</div>
+                    <div id="preview-stat-total" class="text-xl font-extrabold text-slate-900 mt-0.5">0</div>
+                  </div>
+                  <div class="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200">
+                    <div class="text-[11px] font-semibold text-emerald-700">Siap Disimpan (Valid)</div>
+                    <div id="preview-stat-valid" class="text-xl font-extrabold text-emerald-700 mt-0.5">0</div>
+                  </div>
+                  <div class="p-3.5 rounded-xl bg-amber-50/80 border border-amber-200">
+                    <div class="text-[11px] font-semibold text-amber-700">Duplikat NIK (Dilewati)</div>
+                    <div id="preview-stat-dup" class="text-xl font-extrabold text-amber-700 mt-0.5">0</div>
+                  </div>
+                  <div class="p-3.5 rounded-xl bg-rose-50/80 border border-rose-200">
+                    <div class="text-[11px] font-semibold text-rose-700">Data Kosong/Error (Dilewati)</div>
+                    <div id="preview-stat-err" class="text-xl font-extrabold text-rose-700 mt-0.5">0</div>
+                  </div>
+                </div>
+
+                <!-- Preview Data Table -->
+                <div class="overflow-x-auto rounded-xl border border-slate-200/90 max-h-96">
+                  <table class="w-full text-left border-collapse">
+                    <thead class="sticky top-0 z-10">
+                      <tr class="bg-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-600 border-b border-slate-200">
+                        <th class="py-2.5 px-3">Baris</th>
+                        <th class="py-2.5 px-3">NIK</th>
+                        <th class="py-2.5 px-3">Nama Karyawan</th>
+                        <th class="py-2.5 px-3">Departemen</th>
+                        <th class="py-2.5 px-3">Jabatan</th>
+                        <th class="py-2.5 px-3">Status Validasi & Keterangan</th>
+                      </tr>
+                    </thead>
+                    <tbody id="excel-preview-tbody" class="divide-y divide-slate-100 text-xs text-slate-700 bg-white">
+                      <!-- Rendered dynamically after Excel upload -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
           </section>
 
         </main>
@@ -863,7 +1001,7 @@ const IS_PREVIEW = false; // Ubah menjadi false SAAT DEPLOY / PUBLISH agar terhu
 
 // PASTE FIREBASE CONFIG ANDA DI SINI
 const firebaseConfig = {
-apiKey: "AIzaSyB2E4IJvZKUSE-RVjDKb9L6eAj3lcQGWBM",
+  apiKey: "AIzaSyB2E4IJvZKUSE-RVjDKb9L6eAj3lcQGWBM",
   authDomain: "data-karyawan-b4f71.firebaseapp.com",
   projectId: "data-karyawan-b4f71",
   storageBucket: "data-karyawan-b4f71.firebasestorage.app",
@@ -890,6 +1028,7 @@ apiKey: "AIzaSyB2E4IJvZKUSE-RVjDKb9L6eAj3lcQGWBM",
       query,
       where,
       onSnapshot,
+      writeBatch,
       serverTimestamp
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -929,6 +1068,9 @@ apiKey: "AIzaSyB2E4IJvZKUSE-RVjDKb9L6eAj3lcQGWBM",
     let departmentsState = [];
     let employeesState = [];
     let recordsState = [];
+
+    // Temporary state for parsed Excel rows before committing to database
+    let excelParsedPreviewRows = [];
 
     // Initialize Preview Data ONLY if IS_PREVIEW === true (Strictly max 2 items per collection)
     if (IS_PREVIEW === true) {
@@ -1871,6 +2013,510 @@ apiKey: "AIzaSyB2E4IJvZKUSE-RVjDKb9L6eAj3lcQGWBM",
     };
 
     // =====================================================
+    // 8B. EXCEL MASS IMPORT ENGINE (PARSE, PREVIEW, VALIDATE & SYNC)
+    // =====================================================
+
+    // Helper to generate automatic department code when a new department is imported from Excel
+    const generateDeptCodeFromName = (name = '') => {
+      const cleaned = name.replace(/[^a-zA-Z0-9\s]/g, '').trim();
+      const words = cleaned.split(/\s+/).filter(Boolean);
+      if (words.length >= 2) {
+        return (words[0].slice(0, 3) + '-' + words[1].slice(0, 3)).toUpperCase();
+      }
+      return (cleaned.slice(0, 4) || 'DEPT').toUpperCase() + '-' + Math.floor(10 + Math.random() * 89);
+    };
+
+    // 1. Download Standar Excel Template (.xlsx)
+    document.getElementById('btn-download-template').addEventListener('click', () => {
+      if (typeof XLSX === 'undefined') {
+        showToast("Library SheetJS (XLSX) belum termuat. Periksa koneksi internet Anda.", "error");
+        return;
+      }
+
+      const sampleData = [
+        {
+          "Nama Karyawan": "Andi Pratama",
+          "NIK": "EMP-2026-101",
+          "Departemen": "Teknologi Informasi & Sistem",
+          "Jabatan": "Backend Developer",
+          "Password": "123456"
+        },
+        {
+          "Nama Karyawan": "Siti Rahmawati",
+          "NIK": "EMP-2026-102",
+          "Departemen": "Human Resources & Legal",
+          "Jabatan": "HR Specialist",
+          "Password": "123456"
+        },
+        {
+          "Nama Karyawan": "Andi Pratama",
+          "NIK": "EMP-2026-103",
+          "Departemen": "Keuangan & Akuntansi",
+          "Jabatan": "Senior Tax Officer",
+          "Password": "123456"
+        }
+      ];
+
+      const ws = XLSX.utils.json_to_sheet(sampleData);
+      ws['!cols'] = [
+        { wch: 26 }, // Nama Karyawan
+        { wch: 18 }, // NIK
+        { wch: 30 }, // Departemen
+        { wch: 25 }, // Jabatan
+        { wch: 15 }  // Password
+      ];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Data_Karyawan");
+      XLSX.writeFile(wb, "Template_Import_Karyawan_SIMKARYA.xlsx");
+      showToast("Template Excel (.xlsx) berhasil diunduh!", "info");
+    });
+
+    // 2. Display / Hide Format Error Banner
+    const showExcelErrorBanner = (title, messageHtml) => {
+      const banner = document.getElementById('excel-error-banner');
+      document.getElementById('excel-error-title').textContent = title;
+      document.getElementById('excel-error-desc').innerHTML = messageHtml;
+      banner.classList.remove('hidden');
+    };
+
+    const hideExcelErrorBanner = () => {
+      document.getElementById('excel-error-banner').classList.add('hidden');
+    };
+
+    // 3. Reset Excel Preview State
+    const resetExcelImportPreview = () => {
+      excelParsedPreviewRows = [];
+      const fileInput = document.getElementById('excel-file-input');
+      if (fileInput) fileInput.value = '';
+      document.getElementById('excel-selected-file-badge').classList.add('hidden');
+      document.getElementById('excel-preview-container').classList.add('hidden');
+      hideExcelErrorBanner();
+    };
+
+    document.getElementById('btn-clear-excel-preview').addEventListener('click', () => {
+      resetExcelImportPreview();
+      showToast("Preview import Excel dibersihkan.", "info");
+    });
+
+    // 4. Normalize Header Keys & Validate Required Columns
+    const normalizeHeaderStr = (str = '') => {
+      return String(str).toLowerCase().replace(/[^a-z0-9]/g, '');
+    };
+
+    const resolveColumnMapping = (headerRow = []) => {
+      const map = {
+        fullName: null,
+        nik: null,
+        deptName: null,
+        position: null,
+        password: null
+      };
+
+      headerRow.forEach((rawCol) => {
+        const norm = normalizeHeaderStr(rawCol);
+        if (['namakaryawan', 'nama', 'namalengkap', 'fullname', 'employeename'].includes(norm)) {
+          map.fullName = rawCol;
+        } else if (['nik', 'nomorinduk', 'nomorindukkaryawan', 'idkaryawan', 'employeeid'].includes(norm)) {
+          map.nik = rawCol;
+        } else if (['departemen', 'department', 'divisi', 'unitkerja', 'bagian'].includes(norm)) {
+          map.deptName = rawCol;
+        } else if (['jabatan', 'posisi', 'position', 'role', 'title'].includes(norm)) {
+          map.position = rawCol;
+        } else if (['password', 'pass', 'katasandi', 'pin'].includes(norm)) {
+          map.password = rawCol;
+        }
+      });
+
+      const missingColumns = [];
+      if (!map.fullName) missingColumns.push('Nama Karyawan');
+      if (!map.nik) missingColumns.push('NIK');
+      if (!map.deptName) missingColumns.push('Departemen');
+      if (!map.position) missingColumns.push('Jabatan');
+
+      return { map, missingColumns };
+    };
+
+    // 5. Process & Validate Uploaded Excel File (.xlsx / .xls)
+    const processExcelFile = (file) => {
+      hideExcelErrorBanner();
+
+      if (!file) return;
+      const ext = file.name.split('.').pop().toLowerCase();
+      if (!['xlsx', 'xls'].includes(ext)) {
+        showExcelErrorBanner(
+          "Ekstensi File Tidak Didukung!",
+          `File <strong>${file.name}</strong> bukan berformat Excel. Harap unggah file dengan ekstensi <strong>.xlsx</strong> atau <strong>.xls</strong>.`
+        );
+        showToast("Format file harus .xlsx atau .xls!", "error");
+        return;
+      }
+
+      document.getElementById('excel-selected-filename').textContent = file.name;
+      document.getElementById('excel-selected-file-badge').classList.remove('hidden');
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+
+          if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+            showExcelErrorBanner("File Excel Kosong", "Tidak ditemukan sheet di dalam file Excel yang Anda unggah.");
+            return;
+          }
+
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          // Read as 2D array first to inspect headers accurately
+          const rawMatrix = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "" });
+
+          if (!rawMatrix || rawMatrix.length < 2) {
+            showExcelErrorBanner(
+              "Data Tidak Ditemukan",
+              "File Excel tidak memiliki baris data karyawan di bawah baris judul (header)."
+            );
+            document.getElementById('excel-preview-container').classList.add('hidden');
+            return;
+          }
+
+          // Extract header row (first non-empty row)
+          let headerRowIndex = 0;
+          while (headerRowIndex < rawMatrix.length && rawMatrix[headerRowIndex].every(cell => String(cell).trim() === "")) {
+            headerRowIndex++;
+          }
+
+          const headerRow = rawMatrix[headerRowIndex].map(h => String(h).trim());
+          const { map, missingColumns } = resolveColumnMapping(headerRow);
+
+          if (missingColumns.length > 0) {
+            showExcelErrorBanner(
+              "Kolom Wajib Tidak Sesuai / Tidak Ditemukan!",
+              `Sistem tidak menemukan kolom wajib berikut pada baris header Excel Anda: <strong>${missingColumns.join(', ')}</strong>.<br/>Pastikan baris pertama memuat kolom: <code class="bg-white px-1.5 py-0.5 rounded border">Nama Karyawan</code>, <code class="bg-white px-1.5 py-0.5 rounded border">NIK</code>, <code class="bg-white px-1.5 py-0.5 rounded border">Departemen</code>, dan <code class="bg-white px-1.5 py-0.5 rounded border">Jabatan</code>.`
+            );
+            document.getElementById('excel-preview-container').classList.add('hidden');
+            showToast(`Kolom wajib kurang: ${missingColumns.join(', ')}`, "error");
+            return;
+          }
+
+          // Convert sheet to JSON objects using the header row
+          const jsonRows = XLSX.utils.sheet_to_json(firstSheet, { defval: "" });
+          validateAndBuildExcelPreview(jsonRows, map);
+
+        } catch (err) {
+          console.error("Gagal membaca file Excel:", err);
+          showExcelErrorBanner(
+            "Gagal Membaca File Excel",
+            "File Excel rusak atau format tidak dapat dikenali. Silakan gunakan tombol Download Template Excel (.xlsx) di atas."
+          );
+          showToast("Terjadi kesalahan saat membaca file Excel.", "error");
+        }
+      };
+
+      reader.readAsArrayBuffer(file);
+    };
+
+    // 6. Validate Every Row (Empty Fields, Duplicate NIK in DB, Duplicate NIK in File, New Dept Detection)
+    const validateAndBuildExcelPreview = (jsonRows, colMap) => {
+      excelParsedPreviewRows = [];
+
+      // Existing NIK set in Database (uppercase)
+      const existingDbNikSet = new Set(
+        employeesState.map(e => String(e.nik || '').trim().toUpperCase())
+      );
+
+      // Existing Department Map by lowercase name
+      const existingDeptMap = new Map();
+      departmentsState.forEach(d => {
+        existingDeptMap.set(String(d.deptName || '').trim().toLowerCase(), d);
+      });
+
+      // Track NIKs seen inside this Excel file to catch internal duplicates
+      const seenExcelNikSet = new Set();
+
+      let validCount = 0;
+      let dupCount = 0;
+      let errCount = 0;
+
+      jsonRows.forEach((rowObj, idx) => {
+        const rowNumber = idx + 2; // Excel row number (1 = Header)
+        const fullName = String(rowObj[colMap.fullName] ?? '').trim();
+        const nik = String(rowObj[colMap.nik] ?? '').trim().toUpperCase();
+        const deptName = String(rowObj[colMap.deptName] ?? '').trim();
+        const position = String(rowObj[colMap.position] ?? '').trim();
+        const rawPass = colMap.password ? String(rowObj[colMap.password] ?? '').trim() : '';
+        const password = rawPass || '123456';
+
+        // Skip completely blank rows
+        if (!fullName && !nik && !deptName && !position) {
+          return;
+        }
+
+        // Check missing fields
+        const emptyFields = [];
+        if (!fullName) emptyFields.push('Nama Karyawan');
+        if (!nik) emptyFields.push('NIK');
+        if (!deptName) emptyFields.push('Departemen');
+        if (!position) emptyFields.push('Jabatan');
+
+        let statusType = 'valid'; // 'valid' | 'duplicate_db' | 'duplicate_excel' | 'error'
+        let statusLabel = 'Valid — Siap Disimpan';
+        let isNewDept = false;
+
+        if (emptyFields.length > 0) {
+          statusType = 'error';
+          statusLabel = `Error: Kolom ${emptyFields.join(', ')} kosong`;
+          errCount++;
+        } else if (existingDbNikSet.has(nik)) {
+          statusType = 'duplicate_db';
+          statusLabel = `Duplikat: NIK "${nik}" sudah terdaftar di Database`;
+          dupCount++;
+        } else if (seenExcelNikSet.has(nik)) {
+          statusType = 'duplicate_excel';
+          statusLabel = `Duplikat: NIK "${nik}" ganda di dalam file Excel ini`;
+          dupCount++;
+        } else {
+          seenExcelNikSet.add(nik);
+          validCount++;
+          if (!existingDeptMap.has(deptName.toLowerCase())) {
+            isNewDept = true;
+          }
+        }
+
+        excelParsedPreviewRows.push({
+          rowNumber,
+          fullName,
+          nik,
+          deptName,
+          position,
+          password,
+          statusType,
+          statusLabel,
+          isNewDept
+        });
+      });
+
+      // Render Summary Counters
+      document.getElementById('preview-stat-total').textContent = excelParsedPreviewRows.length;
+      document.getElementById('preview-stat-valid').textContent = validCount;
+      document.getElementById('preview-stat-dup').textContent = dupCount;
+      document.getElementById('preview-stat-err').textContent = errCount;
+
+      // Update Commit Button state
+      const commitBtn = document.getElementById('btn-commit-excel-import');
+      const commitBtnText = document.getElementById('btn-commit-excel-text');
+      if (validCount > 0) {
+        commitBtn.disabled = false;
+        commitBtnText.textContent = `Simpan ${validCount} Data Valid ke Database`;
+      } else {
+        commitBtn.disabled = true;
+        commitBtnText.textContent = `Tidak Ada Data Valid untuk Disimpan`;
+      }
+
+      // Render Preview Table Rows
+      const tbody = document.getElementById('excel-preview-tbody');
+      tbody.innerHTML = '';
+
+      if (excelParsedPreviewRows.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" class="py-8 text-center text-slate-400 text-xs">
+              Tidak ada baris data yang dapat diproses dari file Excel ini.
+            </td>
+          </tr>
+        `;
+      } else {
+        excelParsedPreviewRows.forEach(item => {
+          const tr = document.createElement('tr');
+
+          let badgeHtml = '';
+          if (item.statusType === 'valid') {
+            tr.className = "hover:bg-emerald-50/30 transition";
+            badgeHtml = `
+              <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                <i class="fa-solid fa-circle-check"></i> ${item.statusLabel}
+              </span>
+              ${item.isNewDept ? `
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-brand-800 ml-1">
+                  <i class="fa-solid fa-plus-circle"></i> Dept Baru Otomatis
+                </span>
+              ` : ''}
+            `;
+          } else if (item.statusType === 'duplicate_db' || item.statusType === 'duplicate_excel') {
+            tr.className = "bg-amber-50/40 hover:bg-amber-50/70 transition";
+            badgeHtml = `
+              <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                <i class="fa-solid fa-triangle-exclamation"></i> ${item.statusLabel}
+              </span>
+            `;
+          } else {
+            tr.className = "bg-rose-50/40 hover:bg-rose-50/70 transition";
+            badgeHtml = `
+              <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800">
+                <i class="fa-solid fa-circle-xmark"></i> ${item.statusLabel}
+              </span>
+            `;
+          }
+
+          tr.innerHTML = `
+            <td class="py-2.5 px-3 font-mono text-[11px] text-slate-400">#${item.rowNumber}</td>
+            <td class="py-2.5 px-3 font-mono font-bold text-slate-800">${item.nik || '<span class="text-rose-500 italic">Kosong</span>'}</td>
+            <td class="py-2.5 px-3 font-bold text-slate-900">${item.fullName || '<span class="text-rose-500 italic">Kosong</span>'}</td>
+            <td class="py-2.5 px-3 text-slate-700">${item.deptName || '<span class="text-rose-500 italic">Kosong</span>'}</td>
+            <td class="py-2.5 px-3 text-slate-600">${item.position || '<span class="text-rose-500 italic">Kosong</span>'}</td>
+            <td class="py-2.5 px-3">${badgeHtml}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      document.getElementById('excel-preview-container').classList.remove('hidden');
+
+      if (errCount > 0 || dupCount > 0) {
+        showToast(`Pemindaian selesai: ${validCount} Valid, ${dupCount} Duplikat NIK, ${errCount} Tidak Lengkap.`, "info");
+      } else {
+        showToast(`Pemindaian selesai: Seluruh ${validCount} baris data karyawan valid!`, "success");
+      }
+    };
+
+    // 7. Commit Valid Excel Rows to Database & Auto-Sync Departments
+    document.getElementById('btn-commit-excel-import').addEventListener('click', async () => {
+      const validRows = excelParsedPreviewRows.filter(r => r.statusType === 'valid');
+      if (validRows.length === 0) {
+        showToast("Tidak ada baris data valid untuk disimpan.", "error");
+        return;
+      }
+
+      const commitBtn = document.getElementById('btn-commit-excel-import');
+      commitBtn.disabled = true;
+
+      try {
+        // Step A: Build Department Lookup Map (case-insensitive) & Auto-Create Missing Departments
+        const deptLookup = new Map();
+        departmentsState.forEach(d => {
+          deptLookup.set(String(d.deptName || '').trim().toLowerCase(), d);
+        });
+
+        let newDeptsCreatedCount = 0;
+
+        if (IS_PREVIEW === true) {
+          // PREVIEW MODE: In-Memory Sync
+          validRows.forEach((row, index) => {
+            const deptKey = row.deptName.toLowerCase();
+            let targetDept = deptLookup.get(deptKey);
+
+            if (!targetDept) {
+              targetDept = {
+                deptId: `dept-xl-${Date.now().toString().slice(-4)}-${newDeptsCreatedCount + 1}`,
+                deptCode: generateDeptCodeFromName(row.deptName),
+                deptName: row.deptName,
+                updatedAt: formatNowString()
+              };
+              departmentsState.push(targetDept);
+              deptLookup.set(deptKey, targetDept);
+              newDeptsCreatedCount++;
+            }
+
+            employeesState.push({
+              empId: `emp-xl-${Date.now().toString().slice(-4)}-${index + 1}`,
+              nik: row.nik,
+              fullName: row.fullName,
+              deptId: targetDept.deptId,
+              deptName: targetDept.deptName,
+              position: row.position,
+              password: row.password,
+              status: 'Aktif',
+              updatedAt: formatNowString()
+            });
+          });
+
+          renderAllViews();
+        } else {
+          // PRODUCTION MODE: Firestore Batch Write for Atomic Synchronization
+          const batch = writeBatch(db);
+
+          for (const row of validRows) {
+            const deptKey = row.deptName.toLowerCase();
+            let targetDept = deptLookup.get(deptKey);
+
+            if (!targetDept) {
+              const newDeptRef = doc(collection(db, "departments"));
+              targetDept = {
+                deptId: newDeptRef.id,
+                deptCode: generateDeptCodeFromName(row.deptName),
+                deptName: row.deptName,
+                updatedAt: formatNowString()
+              };
+              batch.set(newDeptRef, {
+                deptCode: targetDept.deptCode,
+                deptName: targetDept.deptName,
+                updatedAt: targetDept.updatedAt
+              });
+              deptLookup.set(deptKey, targetDept);
+              newDeptsCreatedCount++;
+            }
+
+            const newEmpRef = doc(collection(db, "employees"));
+            batch.set(newEmpRef, {
+              nik: row.nik,
+              fullName: row.fullName,
+              deptId: targetDept.deptId,
+              deptName: targetDept.deptName,
+              position: row.position,
+              password: row.password,
+              status: 'Aktif',
+              updatedAt: formatNowString()
+            });
+          }
+
+          await batch.commit();
+        }
+
+        const extraDeptMsg = newDeptsCreatedCount > 0 ? ` (+${newDeptsCreatedCount} Departemen baru otomatis dibuat)` : '';
+        showToast(`Berhasil mengimpor ${validRows.length} karyawan ke database${extraDeptMsg}!`);
+        resetExcelImportPreview();
+        // Switch back to Master Employees subtab so HR immediately sees the newly imported employees
+        switchMasterSubTab('emp');
+
+      } catch (err) {
+        console.error("Gagal menyimpan hasil import Excel:", err);
+        showToast("Terjadi kesalahan saat menyimpan data import ke database.", "error");
+      } finally {
+        commitBtn.disabled = false;
+      }
+    });
+
+    // File Input & Drag-and-Drop Event Bindings
+    const excelFileInput = document.getElementById('excel-file-input');
+    const excelDropzone = document.getElementById('excel-dropzone');
+
+    excelFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) processExcelFile(file);
+    });
+
+    ['dragenter', 'dragover'].forEach(evtName => {
+      excelDropzone.addEventListener(evtName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        excelDropzone.classList.add('border-brand-600', 'bg-blue-50/70');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(evtName => {
+      excelDropzone.addEventListener(evtName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        excelDropzone.classList.remove('border-brand-600', 'bg-blue-50/70');
+      });
+    });
+
+    excelDropzone.addEventListener('drop', (e) => {
+      const droppedFiles = e.dataTransfer?.files;
+      if (droppedFiles && droppedFiles.length > 0) {
+        processExcelFile(droppedFiles[0]);
+      }
+    });
+
+    // =====================================================
     // 9. AUTHENTICATION FLOW (HYBRID ADMIN & USER)
     // =====================================================
     const tabUserBtn = document.getElementById('tab-login-user');
@@ -2137,22 +2783,36 @@ apiKey: "AIzaSyB2E4IJvZKUSE-RVjDKb9L6eAj3lcQGWBM",
 
     const subtabEmp = document.getElementById('subtab-btn-emp');
     const subtabDept = document.getElementById('subtab-btn-dept');
+    const subtabImport = document.getElementById('subtab-btn-import');
     const panelEmp = document.getElementById('master-panel-emp');
     const panelDept = document.getElementById('master-panel-dept');
+    const panelImport = document.getElementById('master-panel-import');
 
-    subtabEmp.addEventListener('click', () => {
-      subtabEmp.className = "px-4 py-2 rounded-xl text-xs font-bold bg-brand-600 text-white shadow-sm transition";
-      subtabDept.className = "px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition";
-      panelEmp.classList.remove('hidden');
-      panelDept.classList.add('hidden');
-    });
-
-    subtabDept.addEventListener('click', () => {
-      subtabDept.className = "px-4 py-2 rounded-xl text-xs font-bold bg-brand-600 text-white shadow-sm transition";
+    const switchMasterSubTab = (tabName) => {
+      // Reset button styles
       subtabEmp.className = "px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition";
-      panelDept.classList.remove('hidden');
+      subtabDept.className = "px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition";
+      subtabImport.className = "px-4 py-2 rounded-xl text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 transition flex items-center gap-1.5";
+
       panelEmp.classList.add('hidden');
-    });
+      panelDept.classList.add('hidden');
+      panelImport.classList.add('hidden');
+
+      if (tabName === 'emp') {
+        subtabEmp.className = "px-4 py-2 rounded-xl text-xs font-bold bg-brand-600 text-white shadow-sm transition";
+        panelEmp.classList.remove('hidden');
+      } else if (tabName === 'dept') {
+        subtabDept.className = "px-4 py-2 rounded-xl text-xs font-bold bg-brand-600 text-white shadow-sm transition";
+        panelDept.classList.remove('hidden');
+      } else if (tabName === 'import') {
+        subtabImport.className = "px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 text-white shadow-sm transition flex items-center gap-1.5";
+        panelImport.classList.remove('hidden');
+      }
+    };
+
+    subtabEmp.addEventListener('click', () => switchMasterSubTab('emp'));
+    subtabDept.addEventListener('click', () => switchMasterSubTab('dept'));
+    subtabImport.addEventListener('click', () => switchMasterSubTab('import'));
 
     // Initialize Application on Load
     setupEnvironmentUI();
