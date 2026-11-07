@@ -1,0 +1,2173 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>SIMKARYA — Sistem Pencatatan & Direktori Karyawan Terintegrasi</title>
+  <meta name="theme-color" content="#1e40af" />
+
+  <!-- Single-File PWA Manifest via Data URI -->
+  <link rel="manifest" href='data:application/manifest+json,{"name":"SIMKARYA - Sistem Direktori & Pencatatan Karyawan","short_name":"SIMKARYA","start_url":".","display":"standalone","background_color":"#f8fafc","theme_color":"#1e40af","icons":[{"src":"data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Crect width=%27100%27 height=%27100%27 rx=%2722%27 fill=%27%231e40af%27/%3E%3Cpath d=%27M30 70V30h15l15 20 15-20h15v40h-12V47L60 68 42 47v23H30z%27 fill=%27%23ffffff%27/%3E%3C/svg%3E","sizes":"192x192","type":"image/svg+xml"}]}' />
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- FontAwesome 6 Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#1e3a8a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Reset & Fullscreen Blogger Override */
+    html, body {
+      margin: 0 !important;
+      padding: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      overflow: hidden !important;
+      background-color: #f8fafc;
+      font-family: 'Inter', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    #simkarya-root {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 999999;
+      background: #f8fafc;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Glassmorphism Utilities */
+    .glass-card {
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(226, 232, 240, 0.85);
+    }
+
+    .glass-header {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    /* Responsive Navigation Rules */
+    @media (min-width: 768px) {
+      .desktop-sidebar {
+        display: flex !important;
+      }
+      .mobile-bottom-nav {
+        display: none !important;
+      }
+    }
+    @media (max-width: 767px) {
+      .desktop-sidebar {
+        display: none !important;
+      }
+      .mobile-bottom-nav {
+        display: flex !important;
+      }
+    }
+
+    /* Pulse highlight animation for auto-filled fields */
+    @keyframes autofillPulse {
+      0% { background-color: #dbeafe; border-color: #2563eb; transform: scale(1.01); }
+      100% { background-color: #f8fafc; border-color: #cbd5e1; transform: scale(1); }
+    }
+    .autofill-flash {
+      animation: autofillPulse 0.9s ease-out;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- MAIN FULLSCREEN WRAPPER -->
+  <div id="simkarya-root">
+
+    <!-- PREVIEW MODE TOP BANNER (Hidden automatically when IS_PREVIEW = false) -->
+    <div id="preview-banner" class="hidden bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white px-4 py-1.5 text-xs font-medium flex items-center justify-between shadow-sm shrink-0 z-50">
+      <div class="flex items-center gap-2 truncate">
+        <span class="bg-white/20 px-2 py-0.5 rounded font-bold tracking-wider uppercase text-[10px]">MODE PREVIEW</span>
+        <span class="truncate">Simulasi In-Memory Aktif (2 Data Dummy/Koleksi). Ubah <code class="bg-black/20 px-1 rounded">IS_PREVIEW = false</code> untuk koneksi murni Firebase Firestore.</span>
+      </div>
+      <span class="hidden sm:inline-flex items-center gap-1 text-[11px] bg-black/20 px-2 py-0.5 rounded-full shrink-0">
+        <i class="fa-solid fa-bolt text-yellow-200"></i> Zero LocalStorage
+      </span>
+    </div>
+
+    <!-- ==========================================
+         VIEW 1: AUTHENTICATION (LOGIN SCREEN)
+    =========================================== -->
+    <div id="auth-view" class="flex-1 overflow-y-auto flex items-center justify-center p-4 bg-gradient-to-br from-slate-50 via-blue-50/40 to-indigo-50/50">
+      <div class="w-full max-w-md my-auto">
+        <!-- Brand Header -->
+        <div class="text-center mb-6">
+          <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-800 to-brand-600 text-white flex items-center justify-center mx-auto shadow-lg shadow-brand-600/25 mb-3">
+            <i class="fa-solid fa-id-card-clip text-2xl"></i>
+          </div>
+          <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">SIMKARYA</h1>
+          <p class="text-xs sm:text-sm text-slate-500 mt-1">Sistem Pencatatan & Direktori Karyawan Terintegrasi</p>
+        </div>
+
+        <!-- Login Card -->
+        <div class="glass-card rounded-2xl shadow-xl shadow-slate-200/70 p-6 sm:p-7">
+          <!-- Hybrid Role Switcher Tabs -->
+          <div class="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-xl mb-6">
+            <button type="button" id="tab-login-user" class="py-2.5 px-3 rounded-lg text-xs font-semibold transition-all bg-white text-brand-700 shadow-sm flex items-center justify-center gap-2">
+              <i class="fa-solid fa-user-check"></i> User / Petugas
+            </button>
+            <button type="button" id="tab-login-admin" class="py-2.5 px-3 rounded-lg text-xs font-semibold transition-all text-slate-600 hover:text-slate-900 flex items-center justify-center gap-2">
+              <i class="fa-solid fa-user-shield"></i> Admin (HRD)
+            </button>
+          </div>
+
+          <!-- Form Login User (NIK & Password Database) -->
+          <form id="form-login-user" class="space-y-4">
+            <div class="bg-blue-50/70 border border-blue-100 rounded-xl p-3 text-xs text-slate-600 flex items-start gap-2.5">
+              <i class="fa-solid fa-circle-info text-brand-600 mt-0.5"></i>
+              <span>Login menggunakan <strong>NIK Karyawan</strong> dan <strong>Password</strong> yang terdaftar pada database Master Karyawan.</span>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1.5">Nomor Induk Karyawan (NIK)</label>
+              <div class="relative">
+                <i class="fa-solid fa-hashtag absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                <input type="text" id="login-user-nik" required placeholder="Contoh: EMP-2026-001" class="w-full pl-9 pr-4 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 transition" />
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1.5">Password Akses</label>
+              <div class="relative">
+                <i class="fa-solid fa-lock absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                <input type="password" id="login-user-pass" required placeholder="Masukkan password" class="w-full pl-9 pr-4 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 transition" />
+              </div>
+            </div>
+            <button type="submit" id="btn-submit-user" class="w-full py-2.5 px-4 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white font-semibold text-sm rounded-xl shadow-md shadow-brand-600/20 transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-right-to-bracket"></i> Masuk sebagai Petugas / User
+            </button>
+          </form>
+
+          <!-- Form Login Admin (Firebase Auth Email & Password) -->
+          <form id="form-login-admin" class="space-y-4 hidden">
+            <div class="bg-indigo-50/70 border border-indigo-100 rounded-xl p-3 text-xs text-slate-600 flex items-start gap-2.5">
+              <i class="fa-solid fa-shield-halved text-indigo-600 mt-0.5"></i>
+              <span>Login Administrator HRD menggunakan kredensial <strong>Firebase Authentication</strong> untuk mengelola Master Departemen & Karyawan.</span>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1.5">Email Administrator</label>
+              <div class="relative">
+                <i class="fa-solid fa-envelope absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                <input type="email" id="login-admin-email" required placeholder="admin@perusahaan.com" class="w-full pl-9 pr-4 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 transition" />
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1.5">Password Admin</label>
+              <div class="relative">
+                <i class="fa-solid fa-key absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                <input type="password" id="login-admin-pass" required placeholder="Masukkan password admin" class="w-full pl-9 pr-4 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 transition" />
+              </div>
+            </div>
+            <button type="submit" id="btn-submit-admin" class="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-sm rounded-xl shadow-md transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-user-shield"></i> Masuk Panel Admin
+            </button>
+          </form>
+
+          <!-- PREVIEW DEMO CREDENTIALS BOX (Rendered ONLY when IS_PREVIEW === true) -->
+          <div id="preview-demo-box" class="hidden mt-6 pt-5 border-t border-slate-200/80">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[11px] font-bold uppercase tracking-wider text-amber-700 flex items-center gap-1.5">
+                <i class="fa-solid fa-flask"></i> Akun Demo (Khusus Mode Preview)
+              </span>
+              <span class="text-[10px] text-slate-400">Klik untuk isi otomatis</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" id="btn-fill-demo-user" class="text-left p-2.5 rounded-xl border border-slate-200 hover:border-brand-500 hover:bg-blue-50/40 transition group">
+                <div class="text-xs font-bold text-slate-800 group-hover:text-brand-700">Demo Petugas</div>
+                <div class="text-[11px] text-slate-500 truncate">NIK: EMP-2026-001</div>
+                <div class="text-[10px] text-slate-400">Pass: 123456</div>
+              </button>
+              <button type="button" id="btn-fill-demo-admin" class="text-left p-2.5 rounded-xl border border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/40 transition group">
+                <div class="text-xs font-bold text-slate-800 group-hover:text-indigo-700">Demo Admin HRD</div>
+                <div class="text-[11px] text-slate-500 truncate">admin@simkarya.id</div>
+                <div class="text-[10px] text-slate-400">Pass: admin123</div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==========================================
+         VIEW 2: MAIN APPLICATION SHELL
+    =========================================== -->
+    <div id="app-view" class="hidden flex-1 flex overflow-hidden">
+
+      <!-- DESKTOP LEFT SIDEBAR (>= 768px) -->
+      <aside class="desktop-sidebar w-64 bg-white border-r border-slate-200/90 flex-col justify-between shrink-0 select-none z-20">
+        <div>
+          <!-- Brand Logo -->
+          <div class="h-16 px-5 flex items-center gap-3 border-b border-slate-100">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-800 to-brand-600 text-white flex items-center justify-center shadow-sm">
+              <i class="fa-solid fa-id-card-clip text-sm"></i>
+            </div>
+            <div>
+              <div class="font-extrabold text-slate-900 text-sm tracking-tight leading-none">SIMKARYA</div>
+              <div class="text-[11px] text-slate-400 font-medium mt-0.5">Auto-Fill NIK System</div>
+            </div>
+          </div>
+
+          <!-- User Profile Summary Card -->
+          <div class="p-4 border-b border-slate-100">
+            <div class="bg-slate-50 rounded-xl p-3 border border-slate-200/60">
+              <div class="flex items-center gap-2.5">
+                <div id="sidebar-user-avatar" class="w-9 h-9 rounded-lg bg-brand-100 text-brand-700 font-bold text-xs flex items-center justify-center shrink-0">
+                  US
+                </div>
+                <div class="min-w-0 flex-1">
+                  <div id="sidebar-user-name" class="text-xs font-bold text-slate-800 truncate">Nama Pengguna</div>
+                  <div id="sidebar-user-role" class="text-[11px] text-brand-600 font-medium truncate">Role Akses</div>
+                </div>
+              </div>
+              <div class="mt-2 pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-slate-500">
+                <span>Status DB:</span>
+                <span id="db-sync-badge" class="inline-flex items-center gap-1 text-emerald-600 font-semibold">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Real-Time Sync
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Navigation Links -->
+          <nav class="p-3 space-y-1">
+            <button type="button" data-nav="dashboard" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all">
+              <i class="fa-solid fa-chart-pie w-4 text-center"></i>
+              <span>Dashboard Ringkasan</span>
+            </button>
+            <button type="button" data-nav="input" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all">
+              <i class="fa-solid fa-file-signature w-4 text-center"></i>
+              <span>Input Data Otomatis</span>
+            </button>
+            <button type="button" data-nav="records" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all">
+              <i class="fa-solid fa-clock-rotate-left w-4 text-center"></i>
+              <span>Riwayat Input Data</span>
+            </button>
+            <button type="button" data-nav="master" id="nav-master-desktop" class="nav-btn hidden w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all">
+              <i class="fa-solid fa-database w-4 text-center"></i>
+              <span>Master Karyawan & Dept</span>
+            </button>
+          </nav>
+        </div>
+
+        <!-- Sidebar Footer -->
+        <div class="p-4 border-t border-slate-100">
+          <button type="button" id="btn-logout-desktop" class="w-full py-2.5 px-3 rounded-xl border border-rose-200 bg-rose-50/50 hover:bg-rose-100/70 text-rose-600 font-semibold text-xs transition flex items-center justify-center gap-2">
+            <i class="fa-solid fa-power-off"></i> Keluar Sesi
+          </button>
+        </div>
+      </aside>
+
+      <!-- MAIN SCROLLABLE WORKSPACE -->
+      <div class="flex-1 flex flex-col min-w-0 bg-slate-50/70 overflow-hidden">
+
+        <!-- Top Header Bar -->
+        <header class="glass-header h-16 px-4 sm:px-6 flex items-center justify-between shrink-0 z-10">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="md:hidden w-8 h-8 rounded-lg bg-brand-700 text-white flex items-center justify-center shrink-0">
+              <i class="fa-solid fa-id-card-clip text-xs"></i>
+            </div>
+            <div class="min-w-0">
+              <h2 id="page-title" class="text-sm sm:text-base font-bold text-slate-900 truncate">Dashboard Ringkasan</h2>
+              <p id="page-subtitle" class="text-[11px] text-slate-500 truncate hidden sm:block">Monitoring Direktori & Pencatatan Karyawan Real-Time</p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2.5">
+            <!-- Quick Action to Auto-Fill Form -->
+            <button type="button" id="header-quick-input" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-50 text-brand-700 hover:bg-brand-100 text-xs font-semibold transition">
+              <i class="fa-solid fa-bolt"></i> Input Cepat
+            </button>
+            <!-- Mobile Logout Button -->
+            <button type="button" id="btn-logout-mobile" class="md:hidden p-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 text-xs" title="Keluar">
+              <i class="fa-solid fa-power-off"></i>
+            </button>
+          </div>
+        </header>
+
+        <!-- Scrollable Page Content Container -->
+        <main class="flex-1 overflow-y-auto p-4 sm:p-6 pb-24 md:pb-8 space-y-6">
+
+          <!-- ==========================================
+               SECTION 1: DASHBOARD RINGKASAN
+          =========================================== -->
+          <section id="sec-dashboard" class="space-y-6">
+            <!-- Welcome Banner -->
+            <div class="bg-gradient-to-r from-brand-800 via-brand-700 to-indigo-700 rounded-2xl p-5 sm:p-6 text-white shadow-lg shadow-brand-900/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 text-[11px] font-semibold mb-2">
+                  <i class="fa-solid fa-fingerprint"></i> Unique Employee Identification System
+                </div>
+                <h3 class="text-lg sm:text-xl font-extrabold">Selamat Datang, <span id="dash-welcome-name">Pengguna</span>!</h3>
+                <p class="text-xs sm:text-sm text-blue-100 mt-1 max-w-xl">
+                  Sistem terintegrasi untuk memastikan pengisian data karyawan otomatis berdasarkan Departemen dan ID Unik Karyawan tanpa risiko tertukar pada nama yang sama.
+                </p>
+              </div>
+              <button type="button" id="dash-cta-input" class="shrink-0 px-4 py-2.5 bg-white text-brand-800 hover:bg-blue-50 font-bold text-xs rounded-xl shadow-sm transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-plus-circle"></i> Buat Pencatatan Baru
+              </button>
+            </div>
+
+            <!-- 3 Real-Time Stat Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div class="glass-card rounded-2xl p-4 sm:p-5 flex items-center justify-between">
+                <div>
+                  <div class="text-xs font-semibold text-slate-500">Total Departemen</div>
+                  <div id="stat-total-dept" class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1">0</div>
+                  <div class="text-[11px] text-slate-400 mt-1">Unit kerja terdaftar</div>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-blue-50 text-brand-600 flex items-center justify-center text-lg">
+                  <i class="fa-solid fa-building-user"></i>
+                </div>
+              </div>
+
+              <div class="glass-card rounded-2xl p-4 sm:p-5 flex items-center justify-between">
+                <div>
+                  <div class="text-xs font-semibold text-slate-500">Total Karyawan Aktif</div>
+                  <div id="stat-total-emp" class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1">0</div>
+                  <div class="text-[11px] text-emerald-600 font-medium mt-1"><i class="fa-solid fa-check-double"></i> Terindeks ID & NIK Unik</div>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg">
+                  <i class="fa-solid fa-users-viewfinder"></i>
+                </div>
+              </div>
+
+              <div class="glass-card rounded-2xl p-4 sm:p-5 flex items-center justify-between">
+                <div>
+                  <div class="text-xs font-semibold text-slate-500">Total Riwayat Input</div>
+                  <div id="stat-total-rec" class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1">0</div>
+                  <div class="text-[11px] text-indigo-600 font-medium mt-1">Tersinkronisasi Real-Time</div>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-lg">
+                  <i class="fa-solid fa-file-waveform"></i>
+                </div>
+              </div>
+            </div>
+
+            <!-- Recent Activity Table -->
+            <div class="glass-card rounded-2xl overflow-hidden">
+              <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h4 class="text-sm font-bold text-slate-800">Aktivitas Pencatatan Terbaru</h4>
+                  <p class="text-xs text-slate-500">Log sinkronisasi langsung dari database</p>
+                </div>
+                <button type="button" id="dash-view-all-records" class="text-xs font-semibold text-brand-600 hover:text-brand-800">
+                  Lihat Semua <i class="fa-solid fa-arrow-right ml-1"></i>
+                </button>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                  <thead>
+                    <tr class="bg-slate-50/80 text-[11px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200/70">
+                      <th class="py-3 px-4">Waktu / Tanggal</th>
+                      <th class="py-3 px-4">NIK (Auto-Fill)</th>
+                      <th class="py-3 px-4">Nama Karyawan</th>
+                      <th class="py-3 px-4">Departemen</th>
+                      <th class="py-3 px-4">Kategori</th>
+                    </tr>
+                  </thead>
+                  <tbody id="dash-recent-tbody" class="divide-y divide-slate-100 text-xs text-slate-700">
+                    <!-- Rendered dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <!-- ==========================================
+               SECTION 2: FORM INPUT DATA OTOMATIS (CASCADING AUTO-FILL)
+          =========================================== -->
+          <section id="sec-input" class="hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+              <!-- Left 2 Columns: Cascading Form -->
+              <div class="lg:col-span-2 glass-card rounded-2xl p-5 sm:p-6">
+                <div class="flex items-center justify-between pb-4 mb-5 border-b border-slate-100">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                      <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    </div>
+                    <div>
+                      <h3 class="text-base font-bold text-slate-900">Formulir Pencatatan Karyawan Otomatis</h3>
+                      <p class="text-xs text-slate-500">Pilih Departemen &rarr; Pilih Nama Karyawan &rarr; NIK & Identitas Terisi Otomatis</p>
+                    </div>
+                  </div>
+                  <button type="button" id="btn-reset-autofill-form" class="text-xs text-slate-500 hover:text-slate-800 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition">
+                    <i class="fa-solid fa-rotate-left mr-1"></i> Reset
+                  </button>
+                </div>
+
+                <form id="form-cascading-input" class="space-y-5">
+                  <!-- STEP 1 & 2: CASCADING DROPDOWNS -->
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <!-- Dropdown 1: Pilih Departemen -->
+                    <div>
+                      <label class="block text-xs font-bold text-slate-700 mb-1.5">
+                        <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-brand-600 text-white text-[10px] mr-1">1</span>
+                        Pilih Departemen <span class="text-rose-500">*</span>
+                      </label>
+                      <select id="input-select-dept" required class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 transition font-medium text-slate-800">
+                        <option value="">-- Pilih Departemen Terlebih Dahulu --</option>
+                      </select>
+                      <p class="text-[11px] text-slate-400 mt-1">Memfilter daftar karyawan sesuai unit kerja.</p>
+                    </div>
+
+                    <!-- Dropdown 2: Pilih Nama Karyawan (Value = empId unik) -->
+                    <div>
+                      <label class="block text-xs font-bold text-slate-700 mb-1.5">
+                        <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-brand-600 text-white text-[10px] mr-1">2</span>
+                        Pilih Nama Karyawan <span class="text-rose-500">*</span>
+                      </label>
+                      <select id="input-select-emp" required disabled class="w-full px-3.5 py-2.5 text-sm bg-slate-100 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 transition font-medium text-slate-800 disabled:cursor-not-allowed disabled:text-slate-400">
+                        <option value="">-- Menunggu Pilihan Departemen --</option>
+                      </select>
+                      <p id="emp-dropdown-helper" class="text-[11px] text-slate-400 mt-1">Menggunakan ID Unik Sistem agar nama yang sama tidak tertukar.</p>
+                    </div>
+                  </div>
+
+                  <!-- STEP 3: AUTO-FILLED READ-ONLY FIELDS -->
+                  <div class="p-4 rounded-2xl bg-slate-50/90 border border-slate-200/90 space-y-3">
+                    <div class="flex items-center justify-between">
+                      <span class="text-[11px] font-bold uppercase tracking-wider text-brand-700 flex items-center gap-1.5">
+                        <i class="fa-solid fa-lock text-[10px]"></i> Kolom Otomatis (Terkunci & Terverifikasi Database)
+                      </span>
+                      <span id="autofill-status-pill" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 font-semibold">
+                        Belum Terisi
+                      </span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label class="block text-[11px] font-semibold text-slate-500 mb-1">NIK Karyawan (Auto-Fill)</label>
+                        <input type="text" id="input-readonly-nik" readonly required placeholder="Otomatis terisi..." class="w-full px-3 py-2 text-sm font-mono font-bold text-brand-800 bg-slate-100 border border-slate-200 rounded-xl cursor-not-allowed focus:outline-none" />
+                      </div>
+                      <div>
+                        <label class="block text-[11px] font-semibold text-slate-500 mb-1">Jabatan / Posisi</label>
+                        <input type="text" id="input-readonly-position" readonly placeholder="Otomatis terisi..." class="w-full px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-100 border border-slate-200 rounded-xl cursor-not-allowed focus:outline-none" />
+                      </div>
+                      <div>
+                        <label class="block text-[11px] font-semibold text-slate-500 mb-1">ID Unik Dokumen (`empId`)</label>
+                        <input type="text" id="input-readonly-empid" readonly placeholder="ID Referensi Unik..." class="w-full px-3 py-2 text-xs font-mono text-slate-500 bg-slate-100 border border-slate-200 rounded-xl cursor-not-allowed focus:outline-none" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- STEP 4: TRANSACTION / RECORD DETAILS -->
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label class="block text-xs font-bold text-slate-700 mb-1.5">Kategori Pencatatan <span class="text-rose-500">*</span></label>
+                      <select id="input-record-category" required class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 transition">
+                        <option value="Kehadiran & Shift">Kehadiran & Shift</option>
+                        <option value="Penugasan & Dinas">Penugasan & Dinas</option>
+                        <option value="Evaluasi Kinerja">Evaluasi Kinerja</option>
+                        <option value="Klaim & Fasilitas">Klaim & Fasilitas</option>
+                        <option value="Lainnya">Administrasi Lainnya</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label class="block text-xs font-bold text-slate-700 mb-1.5">Tanggal Efektif <span class="text-rose-500">*</span></label>
+                      <input type="date" id="input-record-date" required class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 transition" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5">Keterangan / Catatan Detail <span class="text-rose-500">*</span></label>
+                    <textarea id="input-record-notes" rows="3" required placeholder="Tuliskan detail keperluan, penugasan, atau catatan evaluasi karyawan..." class="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 transition"></textarea>
+                  </div>
+
+                  <div class="pt-2 flex items-center justify-end gap-3">
+                    <button type="submit" id="btn-submit-record" class="w-full sm:w-auto px-6 py-3 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md shadow-brand-600/20 transition flex items-center justify-center gap-2">
+                      <i class="fa-solid fa-cloud-arrow-up"></i> Simpan & Sinkronkan Data
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              <!-- Right Column: Real-Time Identity Verification Card -->
+              <div class="space-y-4">
+                <div class="glass-card rounded-2xl p-5 border-t-4 border-t-brand-600">
+                  <div class="flex items-center justify-between mb-4">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Kartu Verifikasi Identitas</span>
+                    <i class="fa-solid fa-id-badge text-brand-600 text-lg"></i>
+                  </div>
+
+                  <!-- Empty State Verification -->
+                  <div id="verify-card-empty" class="py-8 text-center">
+                    <div class="w-14 h-14 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                      <i class="fa-solid fa-user-clock text-xl"></i>
+                    </div>
+                    <div class="text-xs font-semibold text-slate-600">Belum Ada Karyawan Dipilih</div>
+                    <p class="text-[11px] text-slate-400 mt-1 px-2">
+                      Silakan pilih Departemen lalu pilih Nama Karyawan untuk memverifikasi NIK secara otomatis.
+                    </p>
+                  </div>
+
+                  <!-- Populated Verification Card -->
+                  <div id="verify-card-content" class="hidden space-y-4">
+                    <div class="flex items-center gap-3.5 p-3 rounded-xl bg-gradient-to-br from-brand-50 to-indigo-50/60 border border-brand-100">
+                      <div id="verify-avatar" class="w-12 h-12 rounded-xl bg-brand-600 text-white font-extrabold text-sm flex items-center justify-center shrink-0 shadow-sm">
+                        BS
+                      </div>
+                      <div class="min-w-0">
+                        <div id="verify-name" class="text-sm font-extrabold text-slate-900 truncate">-</div>
+                        <div id="verify-position" class="text-xs font-semibold text-brand-700 truncate">-</div>
+                        <div id="verify-status" class="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full mt-1">
+                          <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> Aktif Terverifikasi
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="space-y-2.5 text-xs">
+                      <div class="flex items-center justify-between py-1.5 border-b border-slate-100">
+                        <span class="text-slate-500">Nomor Induk (NIK):</span>
+                        <span id="verify-nik" class="font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded">-</span>
+                      </div>
+                      <div class="flex items-center justify-between py-1.5 border-b border-slate-100">
+                        <span class="text-slate-500">Departemen:</span>
+                        <span id="verify-dept" class="font-semibold text-slate-800">-</span>
+                      </div>
+                      <div class="flex items-center justify-between py-1.5 border-b border-slate-100">
+                        <span class="text-slate-500">Unique System ID:</span>
+                        <span id="verify-empid" class="font-mono text-[11px] text-slate-500">-</span>
+                      </div>
+                    </div>
+
+                    <div class="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200/70 text-[11px] text-emerald-800 flex items-start gap-2">
+                      <i class="fa-solid fa-shield-check text-emerald-600 mt-0.5"></i>
+                      <span>Identitas karyawan dikunci menggunakan <strong>Primary Document ID</strong>. Aman dari duplikasi nama yang sama.</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Anti-Collision Explanation Box -->
+                <div class="glass-card rounded-2xl p-4 text-xs text-slate-600 space-y-2">
+                  <div class="font-bold text-slate-800 flex items-center gap-1.5">
+                    <i class="fa-solid fa-circle-nodes text-brand-600"></i> Proteksi Nama Karyawan Sama
+                  </div>
+                  <p class="text-[11px] leading-relaxed text-slate-500">
+                    Jika terdapat 2 karyawan dengan nama persis sama di satu departemen, dropdown otomatis menampilkan kombinasi <strong>Nama + Jabatan + NIK</strong> dan mengikat pilihan ke <code class="bg-slate-100 px-1 rounded">empId</code> unik.
+                  </p>
+                </div>
+              </div>
+
+            </div>
+          </section>
+
+          <!-- ==========================================
+               SECTION 3: RIWAYAT INPUT DATA
+          =========================================== -->
+          <section id="sec-records" class="hidden space-y-5">
+            <div class="glass-card rounded-2xl p-4 sm:p-5">
+              <!-- Filter & Search Bar -->
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                <div class="relative">
+                  <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                  <input type="text" id="filter-record-search" placeholder="Cari Nama Karyawan atau NIK..." class="w-full pl-9 pr-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-brand-600" />
+                </div>
+                <div>
+                  <select id="filter-record-dept" class="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-brand-600">
+                    <option value="ALL">Semua Departemen</option>
+                  </select>
+                </div>
+                <div>
+                  <select id="filter-record-cat" class="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-brand-600">
+                    <option value="ALL">Semua Kategori Pencatatan</option>
+                    <option value="Kehadiran & Shift">Kehadiran & Shift</option>
+                    <option value="Penugasan & Dinas">Penugasan & Dinas</option>
+                    <option value="Evaluasi Kinerja">Evaluasi Kinerja</option>
+                    <option value="Klaim & Fasilitas">Klaim & Fasilitas</option>
+                    <option value="Lainnya">Administrasi Lainnya</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Records Table -->
+              <div class="overflow-x-auto rounded-xl border border-slate-200/80">
+                <table class="w-full text-left border-collapse">
+                  <thead>
+                    <tr class="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200">
+                      <th class="py-3 px-4">Tanggal Efektif</th>
+                      <th class="py-3 px-4">NIK & ID Unik</th>
+                      <th class="py-3 px-4">Nama Karyawan</th>
+                      <th class="py-3 px-4">Departemen</th>
+                      <th class="py-3 px-4">Kategori & Catatan</th>
+                      <th class="py-3 px-4">Diinput Oleh</th>
+                      <th class="py-3 px-4 text-right">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody id="records-table-tbody" class="divide-y divide-slate-100 text-xs text-slate-700 bg-white">
+                    <!-- Dynamically populated -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <!-- ==========================================
+               SECTION 4: MASTER DATA KARYAWAN & DEPARTEMEN (ADMIN ONLY)
+          =========================================== -->
+          <section id="sec-master" class="hidden space-y-6">
+            <!-- Sub-navigation Tabs for Master Data -->
+            <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-2 rounded-2xl border border-slate-200/80 shadow-sm">
+              <div class="flex items-center gap-1.5">
+                <button type="button" id="subtab-btn-emp" class="px-4 py-2 rounded-xl text-xs font-bold bg-brand-600 text-white shadow-sm transition">
+                  <i class="fa-solid fa-users-gear mr-1.5"></i> Master Karyawan
+                </button>
+                <button type="button" id="subtab-btn-dept" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition">
+                  <i class="fa-solid fa-Sitemap mr-1.5"></i> Master Departemen
+                </button>
+              </div>
+              <div class="text-[11px] text-slate-500 px-2 hidden sm:block">
+                <i class="fa-solid fa-bolt text-amber-500 mr-1"></i> Setiap perubahan langsung memperbarui Dropdown Input Otomatis secara *real-time*.
+              </div>
+            </div>
+
+            <!-- SUB-PANEL A: MASTER KARYAWAN -->
+            <div id="master-panel-emp" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <!-- Form Tambah / Edit Karyawan -->
+              <div class="glass-card rounded-2xl p-5 h-fit">
+                <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
+                  <h4 id="form-emp-title" class="text-sm font-bold text-slate-900">Tambah Karyawan Baru</h4>
+                  <button type="button" id="btn-cancel-edit-emp" class="hidden text-[11px] text-rose-600 font-semibold hover:underline">Batal Edit</button>
+                </div>
+
+                <form id="form-master-emp" class="space-y-3.5">
+                  <input type="hidden" id="emp-edit-id" value="" />
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Nomor Induk Karyawan (NIK Unik) <span class="text-rose-500">*</span></label>
+                    <input type="text" id="emp-input-nik" required placeholder="Contoh: EMP-2026-003" class="w-full px-3 py-2 text-xs font-mono uppercase bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-brand-600" />
+                    <p class="text-[10px] text-slate-400 mt-0.5">Dijamin unik, sistem menolak jika NIK sudah terdaftar.</p>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Nama Lengkap Karyawan <span class="text-rose-500">*</span></label>
+                    <input type="text" id="emp-input-name" required placeholder="Contoh: Budi Santoso" class="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-brand-600" />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Departemen <span class="text-rose-500">*</span></label>
+                    <select id="emp-input-dept" required class="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-brand-600">
+                      <option value="">-- Pilih Departemen --</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Jabatan / Posisi Spesifik <span class="text-rose-500">*</span></label>
+                    <input type="text" id="emp-input-position" required placeholder="Contoh: Senior Network Engineer" class="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-brand-600" />
+                  </div>
+                  <div class="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label class="block text-xs font-semibold text-slate-700 mb-1">Password Login <span class="text-rose-500">*</span></label>
+                      <input type="text" id="emp-input-password" required placeholder="Min. 4 karakter" class="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-brand-600" />
+                    </div>
+                    <div>
+                      <label class="block text-xs font-semibold text-slate-700 mb-1">Status</label>
+                      <select id="emp-input-status" class="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-brand-600">
+                        <option value="Aktif">Aktif</option>
+                        <option value="Nonaktif">Nonaktif</option>
+                      </select>
+                    </div>
+                  </div>
+                  <button type="submit" id="btn-save-emp" class="w-full py-2.5 px-4 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-floppy-disk"></i> <span id="btn-save-emp-text">Simpan Master Karyawan</span>
+                  </button>
+                </form>
+              </div>
+
+              <!-- Tabel Daftar Master Karyawan -->
+              <div class="lg:col-span-2 glass-card rounded-2xl p-5">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 mb-4 border-b border-slate-100">
+                  <div>
+                    <h4 class="text-sm font-bold text-slate-900">Direktori Master Karyawan</h4>
+                    <p class="text-xs text-slate-500">Setiap baris memiliki <code class="bg-slate-100 px-1 rounded">empId</code> dan <code class="bg-slate-100 px-1 rounded">nik</code> unik</p>
+                  </div>
+                  <input type="text" id="master-emp-search" placeholder="Cari nama / NIK..." class="px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-brand-600" />
+                </div>
+
+                <div class="overflow-x-auto rounded-xl border border-slate-200/80">
+                  <table class="w-full text-left border-collapse">
+                    <thead>
+                      <tr class="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200">
+                        <th class="py-2.5 px-3">NIK & ID</th>
+                        <th class="py-2.5 px-3">Nama & Jabatan</th>
+                        <th class="py-2.5 px-3">Departemen</th>
+                        <th class="py-2.5 px-3">Akses Login</th>
+                        <th class="py-2.5 px-3 text-right">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody id="master-emp-tbody" class="divide-y divide-slate-100 text-xs text-slate-700 bg-white">
+                      <!-- Populated dynamically -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- SUB-PANEL B: MASTER DEPARTEMEN -->
+            <div id="master-panel-dept" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <!-- Form Tambah / Edit Departemen -->
+              <div class="glass-card rounded-2xl p-5 h-fit">
+                <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
+                  <h4 id="form-dept-title" class="text-sm font-bold text-slate-900">Tambah Departemen</h4>
+                  <button type="button" id="btn-cancel-edit-dept" class="hidden text-[11px] text-rose-600 font-semibold hover:underline">Batal Edit</button>
+                </div>
+
+                <form id="form-master-dept" class="space-y-4">
+                  <input type="hidden" id="dept-edit-id" value="" />
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Kode Departemen <span class="text-rose-500">*</span></label>
+                    <input type="text" id="dept-input-code" required placeholder="Contoh: IT-OPS" class="w-full px-3 py-2 text-xs font-mono uppercase bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-brand-600" />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Nama Departemen <span class="text-rose-500">*</span></label>
+                    <input type="text" id="dept-input-name" required placeholder="Contoh: Teknologi Informasi" class="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-brand-600" />
+                  </div>
+                  <button type="submit" class="w-full py-2.5 px-4 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-floppy-disk"></i> <span id="btn-save-dept-text">Simpan Departemen</span>
+                  </button>
+                </form>
+              </div>
+
+              <!-- Tabel Daftar Departemen -->
+              <div class="lg:col-span-2 glass-card rounded-2xl p-5">
+                <div class="pb-4 mb-4 border-b border-slate-100">
+                  <h4 class="text-sm font-bold text-slate-900">Daftar Master Departemen</h4>
+                  <p class="text-xs text-slate-500">Digunakan sebagai filter utama pada Dropdown Pertama</p>
+                </div>
+                <div class="overflow-x-auto rounded-xl border border-slate-200/80">
+                  <table class="w-full text-left border-collapse">
+                    <thead>
+                      <tr class="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200">
+                        <th class="py-2.5 px-4">ID Dokumen</th>
+                        <th class="py-2.5 px-4">Kode</th>
+                        <th class="py-2.5 px-4">Nama Departemen</th>
+                        <th class="py-2.5 px-4">Jumlah Karyawan</th>
+                        <th class="py-2.5 px-4 text-right">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody id="master-dept-tbody" class="divide-y divide-slate-100 text-xs text-slate-700 bg-white">
+                      <!-- Populated dynamically -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
+
+        </main>
+      </div>
+
+      <!-- MOBILE FLOATING BOTTOM NAVIGATION (< 768px) -->
+      <nav class="mobile-bottom-nav fixed bottom-3 left-3 right-3 bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl shadow-xl shadow-slate-900/10 p-1.5 justify-around items-center z-30">
+        <button type="button" data-nav="dashboard" class="nav-btn flex-1 py-2 rounded-xl flex flex-col items-center justify-center gap-1 text-[10px] font-semibold transition-all">
+          <i class="fa-solid fa-chart-pie text-sm"></i>
+          <span>Dashboard</span>
+        </button>
+        <button type="button" data-nav="input" class="nav-btn flex-1 py-2 rounded-xl flex flex-col items-center justify-center gap-1 text-[10px] font-semibold transition-all">
+          <i class="fa-solid fa-file-signature text-sm"></i>
+          <span>Input Auto</span>
+        </button>
+        <button type="button" data-nav="records" class="nav-btn flex-1 py-2 rounded-xl flex flex-col items-center justify-center gap-1 text-[10px] font-semibold transition-all">
+          <i class="fa-solid fa-clock-rotate-left text-sm"></i>
+          <span>Riwayat</span>
+        </button>
+        <button type="button" data-nav="master" id="nav-master-mobile" class="nav-btn hidden flex-1 py-2 rounded-xl flex flex-col items-center justify-center gap-1 text-[10px] font-semibold transition-all">
+          <i class="fa-solid fa-database text-sm"></i>
+          <span>Master</span>
+        </button>
+      </nav>
+
+    </div>
+
+    <!-- CUSTOM CONFIRMATION MODAL (Replaces native confirm/alert) -->
+    <div id="custom-modal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-100 space-y-4">
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+          </div>
+          <div>
+            <h4 id="modal-title" class="text-sm font-bold text-slate-900">Konfirmasi Tindakan</h4>
+            <p id="modal-message" class="text-xs text-slate-500 mt-1">Apakah Anda yakin ingin melanjutkan?</p>
+          </div>
+        </div>
+        <div class="flex items-center justify-end gap-2 pt-2">
+          <button type="button" id="modal-btn-cancel" class="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">Batal</button>
+          <button type="button" id="modal-btn-confirm" class="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white transition">Ya, Lanjutkan</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION CONTAINER -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2 max-w-xs w-full pointer-events-none"></div>
+
+  </div>
+
+  <!-- ==========================================
+       MAIN APPLICATION SCRIPT (ES MODULE)
+  =========================================== -->
+  <script type="module">
+// KONFIGURASI APLIKASI
+const IS_PREVIEW = false; // Ubah menjadi false SAAT DEPLOY / PUBLISH agar terhubung murni ke Firebase tanpa data dummy
+
+// PASTE FIREBASE CONFIG ANDA DI SINI
+const firebaseConfig = {
+apiKey: "AIzaSyB2E4IJvZKUSE-RVjDKb9L6eAj3lcQGWBM",
+  authDomain: "data-karyawan-b4f71.firebaseapp.com",
+  projectId: "data-karyawan-b4f71",
+  storageBucket: "data-karyawan-b4f71.firebasestorage.app",
+  messagingSenderId: "802611409322",
+  appId: "1:802611409322:web:ef05314d906e3f12107bd3"
+};
+
+    // Import Firebase Modular SDK v10.12.2
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+      getAuth,
+      signInWithEmailAndPassword,
+      signOut,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import {
+      getFirestore,
+      collection,
+      doc,
+      addDoc,
+      updateDoc,
+      deleteDoc,
+      getDocs,
+      query,
+      where,
+      onSnapshot,
+      serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // =====================================================
+    // 1. SINGLE-FILE PWA SERVICE WORKER VIA DYNAMIC BLOB
+    // =====================================================
+    const initDynamicPWA = () => {
+      if ('serviceWorker' in navigator) {
+        const swCode = `
+          self.addEventListener('install', (e) => self.skipWaiting());
+          self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
+          self.addEventListener('fetch', () => {});
+        `;
+        try {
+          const blob = new Blob([swCode], { type: 'application/javascript' });
+          const swUrl = URL.createObjectURL(blob);
+          navigator.serviceWorker.register(swUrl).catch(() => {});
+        } catch (err) {
+          // Ignore blob registration restriction in sandboxed iframe environments
+        }
+      }
+    };
+    initDynamicPWA();
+
+    // =====================================================
+    // 2. APPLICATION IN-MEMORY STATE (ZERO LOCALSTORAGE)
+    // =====================================================
+    let app = null;
+    let auth = null;
+    let db = null;
+    let unsubscribeListeners = [];
+
+    let currentUser = null; // { role: 'admin'|'user', name, nik, email, empId }
+    let currentSection = 'dashboard';
+
+    // Real-time Collections State in RAM
+    let departmentsState = [];
+    let employeesState = [];
+    let recordsState = [];
+
+    // Initialize Preview Data ONLY if IS_PREVIEW === true (Strictly max 2 items per collection)
+    if (IS_PREVIEW === true) {
+      departmentsState = [
+        {
+          deptId: "dept-it-01",
+          deptCode: "IT-DEV",
+          deptName: "Teknologi Informasi & Sistem",
+          updatedAt: "2026-11-07 08:30"
+        },
+        {
+          deptId: "dept-hr-02",
+          deptCode: "HR-GA",
+          deptName: "Human Resources & Legal",
+          updatedAt: "2026-11-07 08:35"
+        }
+      ];
+
+      // Demonstrating protection against identical names in the same department:
+      // Two employees named "Budi Santoso" in "Teknologi Informasi & Sistem" with distinct empId & NIK
+      employeesState = [
+        {
+          empId: "emp-uid-9001",
+          nik: "EMP-2026-001",
+          fullName: "Budi Santoso",
+          deptId: "dept-it-01",
+          deptName: "Teknologi Informasi & Sistem",
+          position: "Lead Cloud Architect",
+          password: "123456",
+          status: "Aktif"
+        },
+        {
+          empId: "emp-uid-9002",
+          nik: "EMP-2026-002",
+          fullName: "Budi Santoso",
+          deptId: "dept-it-01",
+          deptName: "Teknologi Informasi & Sistem",
+          position: "Frontend UI Specialist",
+          password: "123456",
+          status: "Aktif"
+        }
+      ];
+
+      recordsState = [
+        {
+          recordId: "rec-uid-5001",
+          empId: "emp-uid-9001",
+          nik: "EMP-2026-001",
+          fullName: "Budi Santoso",
+          position: "Lead Cloud Architect",
+          deptId: "dept-it-01",
+          deptName: "Teknologi Informasi & Sistem",
+          category: "Penugasan & Dinas",
+          effectiveDate: "2026-11-07",
+          notes: "Penugasan audit infrastruktur server pusat dan migrasi database real-time.",
+          createdBy: "Admin HRD",
+          createdAtText: "07 Nov 2026, 09:15"
+        },
+        {
+          recordId: "rec-uid-5002",
+          empId: "emp-uid-9002",
+          nik: "EMP-2026-002",
+          fullName: "Budi Santoso",
+          position: "Frontend UI Specialist",
+          deptId: "dept-it-01",
+          deptName: "Teknologi Informasi & Sistem",
+          category: "Evaluasi Kinerja",
+          effectiveDate: "2026-11-07",
+          notes: "Implementasi modul Cascading Dropdown Auto-Fill NIK selesai tepat waktu.",
+          createdBy: "Budi Santoso (EMP-2026-001)",
+          createdAtText: "07 Nov 2026, 10:40"
+        }
+      ];
+    } else {
+      // PRODUCTION MODE: Initialize Firebase cleanly without any dummy data
+      try {
+        app = initializeApp(firebaseConfig);
+        auth = getAuth(app);
+        db = getFirestore(app);
+      } catch (err) {
+        console.error("Gagal menginisialisasi Firebase:", err);
+      }
+    }
+
+    // =====================================================
+    // 3. UI HELPERS (TOAST & CUSTOM MODAL)
+    // =====================================================
+    const showToast = (message, type = 'success') => {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      const colors = {
+        success: 'bg-emerald-600 text-white border-emerald-700',
+        error: 'bg-rose-600 text-white border-rose-700',
+        info: 'bg-brand-700 text-white border-brand-800'
+      };
+      const icons = {
+        success: 'fa-circle-check',
+        error: 'fa-circle-exclamation',
+        info: 'fa-circle-info'
+      };
+
+      toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-lg border text-xs font-semibold transition-all duration-300 ${colors[type] || colors.info}`;
+      toast.innerHTML = `
+        <i class="fa-solid ${icons[type] || icons.info} text-sm shrink-0"></i>
+        <span class="flex-1 leading-snug">${message}</span>
+      `;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-8px)';
+        setTimeout(() => toast.remove(), 300);
+      }, 3200);
+    };
+
+    const showConfirmModal = (title, message, onConfirm) => {
+      const modal = document.getElementById('custom-modal');
+      document.getElementById('modal-title').textContent = title;
+      document.getElementById('modal-message').textContent = message;
+      modal.classList.remove('hidden');
+
+      const btnCancel = document.getElementById('modal-btn-cancel');
+      const btnConfirm = document.getElementById('modal-btn-confirm');
+
+      const cleanup = () => {
+        modal.classList.add('hidden');
+        btnCancel.onclick = null;
+        btnConfirm.onclick = null;
+      };
+
+      btnCancel.onclick = cleanup;
+      btnConfirm.onclick = () => {
+        cleanup();
+        onConfirm();
+      };
+    };
+
+    const getInitials = (name = '') => {
+      return name
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map(w => w[0].toUpperCase())
+        .join('') || 'KR';
+    };
+
+    const formatNowString = () => {
+      const now = new Date();
+      return now.toLocaleDateString('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    };
+
+    // Set default date input to today
+    const setDefaultDateInput = () => {
+      const dateInput = document.getElementById('input-record-date');
+      if (dateInput) {
+        const today = new Date().toISOString().split('T')[0];
+        dateInput.value = today;
+      }
+    };
+
+    // =====================================================
+    // 4. PREVIEW VS PRODUCTION UI INITIALIZATION
+    // =====================================================
+    const setupEnvironmentUI = () => {
+      const previewBanner = document.getElementById('preview-banner');
+      const previewDemoBox = document.getElementById('preview-demo-box');
+      const syncBadge = document.getElementById('db-sync-badge');
+
+      if (IS_PREVIEW === true) {
+        previewBanner.classList.remove('hidden');
+        previewDemoBox.classList.remove('hidden');
+        syncBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span> In-Memory Preview`;
+        syncBadge.className = "inline-flex items-center gap-1 text-amber-600 font-semibold";
+      } else {
+        previewBanner.classList.add('hidden');
+        previewDemoBox.classList.add('hidden');
+        syncBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Firestore Live`;
+        syncBadge.className = "inline-flex items-center gap-1 text-emerald-600 font-semibold";
+      }
+    };
+
+    // =====================================================
+    // 5. REAL-TIME FIRESTORE LISTENERS (PRODUCTION MODE)
+    // =====================================================
+    const startFirestoreListeners = () => {
+      if (IS_PREVIEW === true || !db) return;
+
+      // Clear existing listeners first
+      stopFirestoreListeners();
+
+      // 1. Listen to `departments`
+      const unsubDept = onSnapshot(collection(db, "departments"), (snapshot) => {
+        departmentsState = snapshot.docs.map(d => ({
+          deptId: d.id,
+          ...d.data()
+        }));
+        renderAllViews();
+      }, (err) => {
+        console.error("Firestore departments error:", err);
+      });
+
+      // 2. Listen to `employees`
+      const unsubEmp = onSnapshot(collection(db, "employees"), (snapshot) => {
+        employeesState = snapshot.docs.map(d => ({
+          empId: d.id,
+          ...d.data()
+        }));
+        renderAllViews();
+      }, (err) => {
+        console.error("Firestore employees error:", err);
+      });
+
+      // 3. Listen to `employee_records`
+      const unsubRec = onSnapshot(collection(db, "employee_records"), (snapshot) => {
+        recordsState = snapshot.docs.map(d => ({
+          recordId: d.id,
+          ...d.data()
+        }));
+        // Sort newest first in memory
+        recordsState.sort((a, b) => (b.createdAtMs || 0) - (a.createdAtMs || 0));
+        renderAllViews();
+      }, (err) => {
+        console.error("Firestore employee_records error:", err);
+      });
+
+      unsubscribeListeners.push(unsubDept, unsubEmp, unsubRec);
+    };
+
+    const stopFirestoreListeners = () => {
+      unsubscribeListeners.forEach(unsub => {
+        if (typeof unsub === 'function') unsub();
+      });
+      unsubscribeListeners = [];
+    };
+
+    // =====================================================
+    // 6. CASCADING DROPDOWN & AUTO-FILL ENGINE
+    // =====================================================
+    const populateDepartmentDropdowns = () => {
+      const selectInputDept = document.getElementById('input-select-dept');
+      const selectFilterDept = document.getElementById('filter-record-dept');
+      const selectMasterEmpDept = document.getElementById('emp-input-dept');
+
+      const currentInputDeptVal = selectInputDept.value;
+      const currentFilterDeptVal = selectFilterDept.value;
+      const currentMasterEmpDeptVal = selectMasterEmpDept.value;
+
+      // 1. Cascading Form Dropdown 1
+      selectInputDept.innerHTML = `<option value="">-- Pilih Departemen (${departmentsState.length} Tersedia) --</option>`;
+      departmentsState.forEach(dept => {
+        const opt = document.createElement('option');
+        opt.value = dept.deptId;
+        opt.textContent = `${dept.deptName} (${dept.deptCode})`;
+        selectInputDept.appendChild(opt);
+      });
+      if (departmentsState.some(d => d.deptId === currentInputDeptVal)) {
+        selectInputDept.value = currentInputDeptVal;
+      }
+
+      // 2. Filter History Dropdown
+      selectFilterDept.innerHTML = `<option value="ALL">Semua Departemen</option>`;
+      departmentsState.forEach(dept => {
+        const opt = document.createElement('option');
+        opt.value = dept.deptId;
+        opt.textContent = dept.deptName;
+        selectFilterDept.appendChild(opt);
+      });
+      if (currentFilterDeptVal) selectFilterDept.value = currentFilterDeptVal;
+
+      // 3. Master Employee Form Department Dropdown
+      selectMasterEmpDept.innerHTML = `<option value="">-- Pilih Departemen --</option>`;
+      departmentsState.forEach(dept => {
+        const opt = document.createElement('option');
+        opt.value = dept.deptId;
+        opt.textContent = `${dept.deptName} [${dept.deptCode}]`;
+        selectMasterEmpDept.appendChild(opt);
+      });
+      if (departmentsState.some(d => d.deptId === currentMasterEmpDeptVal)) {
+        selectMasterEmpDept.value = currentMasterEmpDeptVal;
+      }
+    };
+
+    // Triggered when Department Dropdown changes OR when underlying employee data updates in real-time
+    const updateCascadingEmployeeDropdown = (preserveSelection = false) => {
+      const selectDept = document.getElementById('input-select-dept');
+      const selectEmp = document.getElementById('input-select-emp');
+      const helperText = document.getElementById('emp-dropdown-helper');
+
+      const selectedDeptId = selectDept.value;
+      const previousEmpId = preserveSelection ? selectEmp.value : "";
+
+      if (!selectedDeptId) {
+        selectEmp.innerHTML = `<option value="">-- Menunggu Pilihan Departemen --</option>`;
+        selectEmp.disabled = true;
+        helperText.textContent = "Pilih departemen di sebelah kiri terlebih dahulu.";
+        clearAutoFilledEmployeeIdentity();
+        return;
+      }
+
+      // Filter active employees strictly matching deptId
+      const matchingEmployees = employeesState.filter(
+        emp => emp.deptId === selectedDeptId && emp.status !== 'Nonaktif'
+      );
+
+      selectEmp.innerHTML = `<option value="">-- Pilih Nama Karyawan (${matchingEmployees.length} Ditemukan) --</option>`;
+
+      if (matchingEmployees.length === 0) {
+        selectEmp.disabled = true;
+        helperText.textContent = "Belum ada karyawan aktif terdaftar pada departemen ini.";
+        clearAutoFilledEmployeeIdentity();
+        return;
+      }
+
+      selectEmp.disabled = false;
+
+      // Detect duplicate names within the same department to inform the user
+      const nameCounts = {};
+      matchingEmployees.forEach(e => {
+        const key = (e.fullName || '').trim().toLowerCase();
+        nameCounts[key] = (nameCounts[key] || 0) + 1;
+      });
+
+      matchingEmployees.forEach(emp => {
+        const opt = document.createElement('option');
+        // CRITICAL: Option value is the unique Document ID (`empId`), NEVER the name string!
+        opt.value = emp.empId;
+        opt.textContent = `${emp.fullName} — [${emp.position} | NIK: ${emp.nik}]`;
+        selectEmp.appendChild(opt);
+      });
+
+      const hasDuplicateNames = Object.values(nameCounts).some(count => count > 1);
+      if (hasDuplicateNames) {
+        helperText.innerHTML = `<span class="text-brand-700 font-semibold"><i class="fa-solid fa-shield-halved"></i> Terdeteksi nama karyawan sama!</span> Sistem membedakan via Jabatan & mengikat ke ID Unik.`;
+      } else {
+        helperText.textContent = `Menampilkan ${matchingEmployees.length} karyawan pada departemen terpilih.`;
+      }
+
+      // Restore selection if still valid in this department
+      if (preserveSelection && matchingEmployees.some(e => e.empId === previousEmpId)) {
+        selectEmp.value = previousEmpId;
+        handleEmployeeSelectionAutoFill(false);
+      } else {
+        clearAutoFilledEmployeeIdentity();
+      }
+    };
+
+    // Clear auto-filled read-only fields & verification card
+    const clearAutoFilledEmployeeIdentity = () => {
+      document.getElementById('input-readonly-nik').value = '';
+      document.getElementById('input-readonly-position').value = '';
+      document.getElementById('input-readonly-empid').value = '';
+
+      const pill = document.getElementById('autofill-status-pill');
+      pill.textContent = 'Belum Terisi';
+      pill.className = 'text-[10px] px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 font-semibold';
+
+      document.getElementById('verify-card-empty').classList.remove('hidden');
+      document.getElementById('verify-card-content').classList.add('hidden');
+    };
+
+    // Populate NIK, Position, Unique ID and Identity Verification Card when Employee is chosen
+    const handleEmployeeSelectionAutoFill = (animateFlash = true) => {
+      const selectedEmpId = document.getElementById('input-select-emp').value;
+      if (!selectedEmpId) {
+        clearAutoFilledEmployeeIdentity();
+        return;
+      }
+
+      // Lookup strictly by unique `empId`
+      const emp = employeesState.find(item => item.empId === selectedEmpId);
+      if (!emp) {
+        clearAutoFilledEmployeeIdentity();
+        return;
+      }
+
+      const nikInput = document.getElementById('input-readonly-nik');
+      const posInput = document.getElementById('input-readonly-position');
+      const idInput = document.getElementById('input-readonly-empid');
+
+      nikInput.value = emp.nik;
+      posInput.value = emp.position;
+      idInput.value = emp.empId;
+
+      if (animateFlash) {
+        [nikInput, posInput, idInput].forEach(el => {
+          el.classList.remove('autofill-flash');
+          void el.offsetWidth; // trigger reflow
+          el.classList.add('autofill-flash');
+        });
+      }
+
+      const pill = document.getElementById('autofill-status-pill');
+      pill.innerHTML = `<i class="fa-solid fa-check-circle mr-1"></i> NIK Terisi Otomatis`;
+      pill.className = 'text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold';
+
+      // Populate Right-hand Identity Verification Card
+      document.getElementById('verify-card-empty').classList.add('hidden');
+      document.getElementById('verify-card-content').classList.remove('hidden');
+
+      document.getElementById('verify-avatar').textContent = getInitials(emp.fullName);
+      document.getElementById('verify-name').textContent = emp.fullName;
+      document.getElementById('verify-position').textContent = emp.position;
+      document.getElementById('verify-nik').textContent = emp.nik;
+      document.getElementById('verify-dept').textContent = emp.deptName;
+      document.getElementById('verify-empid').textContent = emp.empId;
+    };
+
+    // =====================================================
+    // 7. RENDER FUNCTIONS FOR DASHBOARD, TABLES & MASTER
+    // =====================================================
+    const renderDashboard = () => {
+      document.getElementById('stat-total-dept').textContent = departmentsState.length;
+      document.getElementById('stat-total-emp').textContent = employeesState.filter(e => e.status !== 'Nonaktif').length;
+      document.getElementById('stat-total-rec').textContent = recordsState.length;
+
+      const tbody = document.getElementById('dash-recent-tbody');
+      tbody.innerHTML = '';
+
+      if (recordsState.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5" class="py-8 text-center text-slate-400 text-xs">
+              <i class="fa-regular fa-folder-open text-lg mb-1 block"></i>
+              Belum ada data pencatatan di database.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      recordsState.slice(0, 5).forEach(rec => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50/80 transition";
+        tr.innerHTML = `
+          <td class="py-3 px-4 whitespace-nowrap text-slate-500">${rec.createdAtText || rec.effectiveDate}</td>
+          <td class="py-3 px-4 whitespace-nowrap">
+            <span class="font-mono font-bold text-brand-700 bg-brand-50 px-2 py-0.5 rounded border border-brand-100">${rec.nik}</span>
+          </td>
+          <td class="py-3 px-4">
+            <div class="font-bold text-slate-900">${rec.fullName}</div>
+            <div class="text-[11px] text-slate-400">${rec.position || '-'}</div>
+          </td>
+          <td class="py-3 px-4 text-slate-600">${rec.deptName}</td>
+          <td class="py-3 px-4">
+            <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700">${rec.category}</span>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    };
+
+    const renderRecordsHistory = () => {
+      const searchVal = (document.getElementById('filter-record-search').value || '').toLowerCase().trim();
+      const deptVal = document.getElementById('filter-record-dept').value;
+      const catVal = document.getElementById('filter-record-cat').value;
+
+      const filtered = recordsState.filter(rec => {
+        const matchSearch =
+          !searchVal ||
+          (rec.fullName || '').toLowerCase().includes(searchVal) ||
+          (rec.nik || '').toLowerCase().includes(searchVal) ||
+          (rec.notes || '').toLowerCase().includes(searchVal);
+        const matchDept = deptVal === 'ALL' || rec.deptId === deptVal;
+        const matchCat = catVal === 'ALL' || rec.category === catVal;
+        return matchSearch && matchDept && matchCat;
+      });
+
+      const tbody = document.getElementById('records-table-tbody');
+      tbody.innerHTML = '';
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7" class="py-10 text-center text-slate-400 text-xs">
+              <i class="fa-solid fa-inbox text-xl mb-1.5 block"></i>
+              Belum ada data riwayat input yang sesuai filter.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      filtered.forEach(rec => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50/90 transition";
+        const canDelete = currentUser && currentUser.role === 'admin';
+
+        tr.innerHTML = `
+          <td class="py-3 px-4 whitespace-nowrap">
+            <div class="font-bold text-slate-800">${rec.effectiveDate || '-'}</div>
+            <div class="text-[10px] text-slate-400">${rec.createdAtText || ''}</div>
+          </td>
+          <td class="py-3 px-4 whitespace-nowrap">
+            <div class="font-mono font-bold text-brand-700">${rec.nik}</div>
+            <div class="font-mono text-[10px] text-slate-400">ID: ${rec.empId}</div>
+          </td>
+          <td class="py-3 px-4">
+            <div class="font-bold text-slate-900">${rec.fullName}</div>
+            <div class="text-[11px] text-slate-500">${rec.position || '-'}</div>
+          </td>
+          <td class="py-3 px-4 text-slate-700 font-medium">${rec.deptName}</td>
+          <td class="py-3 px-4 max-w-xs">
+            <span class="inline-block px-2 py-0.5 rounded bg-blue-50 text-brand-700 font-semibold text-[10px] mb-1">${rec.category}</span>
+            <p class="text-slate-600 text-xs line-clamp-2">${rec.notes}</p>
+          </td>
+          <td class="py-3 px-4 text-slate-500 text-[11px]">${rec.createdBy || '-'}</td>
+          <td class="py-3 px-4 text-right whitespace-nowrap">
+            ${canDelete ? `
+              <button type="button" data-del-rec="${rec.recordId}" class="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition" title="Hapus Data">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            ` : `<span class="text-[10px] text-slate-400 font-medium">Terkunci</span>`}
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // Attach delete handlers for Admin
+      tbody.querySelectorAll('[data-del-rec]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const recId = btn.getAttribute('data-del-rec');
+          handleDeleteRecord(recId);
+        });
+      });
+    };
+
+    const renderMasterEmployees = () => {
+      const searchVal = (document.getElementById('master-emp-search').value || '').toLowerCase().trim();
+      const tbody = document.getElementById('master-emp-tbody');
+      tbody.innerHTML = '';
+
+      const filtered = employeesState.filter(emp => {
+        return (
+          !searchVal ||
+          (emp.fullName || '').toLowerCase().includes(searchVal) ||
+          (emp.nik || '').toLowerCase().includes(searchVal) ||
+          (emp.position || '').toLowerCase().includes(searchVal)
+        );
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5" class="py-8 text-center text-slate-400 text-xs">Belum ada data karyawan terdaftar.</td>
+          </tr>
+        `;
+        return;
+      }
+
+      filtered.forEach(emp => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50 transition";
+        tr.innerHTML = `
+          <td class="py-3 px-3 whitespace-nowrap">
+            <div class="font-mono font-bold text-brand-700">${emp.nik}</div>
+            <div class="font-mono text-[10px] text-slate-400">${emp.empId}</div>
+          </td>
+          <td class="py-3 px-3">
+            <div class="font-bold text-slate-900">${emp.fullName}</div>
+            <div class="text-[11px] text-slate-500">${emp.position}</div>
+          </td>
+          <td class="py-3 px-3 text-slate-700">${emp.deptName}</td>
+          <td class="py-3 px-3 whitespace-nowrap">
+            <span class="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${emp.status === 'Aktif' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}">${emp.status}</span>
+            <div class="text-[10px] text-slate-400 font-mono mt-0.5">Pass: ${emp.password}</div>
+          </td>
+          <td class="py-3 px-3 text-right whitespace-nowrap space-x-1">
+            <button type="button" data-edit-emp="${emp.empId}" class="p-1.5 rounded-lg text-brand-600 hover:bg-blue-50 transition" title="Edit Karyawan">
+              <i class="fa-solid fa-pen-to-square"></i>
+            </button>
+            <button type="button" data-del-emp="${emp.empId}" class="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition" title="Hapus Karyawan">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      tbody.querySelectorAll('[data-edit-emp]').forEach(btn => {
+        btn.addEventListener('click', () => startEditEmployee(btn.getAttribute('data-edit-emp')));
+      });
+      tbody.querySelectorAll('[data-del-emp]').forEach(btn => {
+        btn.addEventListener('click', () => handleDeleteEmployee(btn.getAttribute('data-del-emp')));
+      });
+    };
+
+    const renderMasterDepartments = () => {
+      const tbody = document.getElementById('master-dept-tbody');
+      tbody.innerHTML = '';
+
+      if (departmentsState.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5" class="py-8 text-center text-slate-400 text-xs">Belum ada data departemen terdaftar.</td>
+          </tr>
+        `;
+        return;
+      }
+
+      departmentsState.forEach(dept => {
+        const countEmp = employeesState.filter(e => e.deptId === dept.deptId).length;
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50 transition";
+        tr.innerHTML = `
+          <td class="py-3 px-4 font-mono text-[11px] text-slate-400">${dept.deptId}</td>
+          <td class="py-3 px-4 font-mono font-bold text-brand-700">${dept.deptCode}</td>
+          <td class="py-3 px-4 font-bold text-slate-900">${dept.deptName}</td>
+          <td class="py-3 px-4">
+            <span class="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 font-semibold text-[11px]">${countEmp} Karyawan</span>
+          </td>
+          <td class="py-3 px-4 text-right whitespace-nowrap space-x-1">
+            <button type="button" data-edit-dept="${dept.deptId}" class="p-1.5 rounded-lg text-brand-600 hover:bg-blue-50 transition" title="Edit Departemen">
+              <i class="fa-solid fa-pen-to-square"></i>
+            </button>
+            <button type="button" data-del-dept="${dept.deptId}" class="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition" title="Hapus Departemen">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      tbody.querySelectorAll('[data-edit-dept]').forEach(btn => {
+        btn.addEventListener('click', () => startEditDepartment(btn.getAttribute('data-edit-dept')));
+      });
+      tbody.querySelectorAll('[data-del-dept]').forEach(btn => {
+        btn.addEventListener('click', () => handleDeleteDepartment(btn.getAttribute('data-del-dept')));
+      });
+    };
+
+    const renderAllViews = () => {
+      populateDepartmentDropdowns();
+      updateCascadingEmployeeDropdown(true);
+      renderDashboard();
+      renderRecordsHistory();
+      renderMasterEmployees();
+      renderMasterDepartments();
+    };
+
+    // =====================================================
+    // 8. CRUD HANDLERS (PREVIEW IN-MEMORY & FIRESTORE LIVE)
+    // =====================================================
+
+    // A. Submit Cascading Auto-Fill Form (`employee_records`)
+    document.getElementById('form-cascading-input').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const deptId = document.getElementById('input-select-dept').value;
+      const empId = document.getElementById('input-select-emp').value;
+      const nik = document.getElementById('input-readonly-nik').value;
+      const category = document.getElementById('input-record-category').value;
+      const effectiveDate = document.getElementById('input-record-date').value;
+      const notes = document.getElementById('input-record-notes').value.trim();
+
+      // Verify employee exists by unique `empId`
+      const empObj = employeesState.find(item => item.empId === empId && item.deptId === deptId);
+      if (!empObj || !nik) {
+        showToast("Pilih Departemen dan Nama Karyawan yang valid terlebih dahulu!", "error");
+        return;
+      }
+
+      const submitBtn = document.getElementById('btn-submit-record');
+      submitBtn.disabled = true;
+
+      const payload = {
+        empId: empObj.empId,
+        nik: empObj.nik,
+        fullName: empObj.fullName,
+        position: empObj.position,
+        deptId: empObj.deptId,
+        deptName: empObj.deptName,
+        category,
+        effectiveDate,
+        notes,
+        createdBy: currentUser ? `${currentUser.name} (${currentUser.role.toUpperCase()})` : 'Petugas',
+        createdAtText: formatNowString(),
+        createdAtMs: Date.now()
+      };
+
+      try {
+        if (IS_PREVIEW === true) {
+          recordsState.unshift({
+            recordId: `rec-uid-${Date.now().toString().slice(-4)}`,
+            ...payload
+          });
+          renderAllViews();
+        } else {
+          await addDoc(collection(db, "employee_records"), {
+            ...payload,
+            createdAt: serverTimestamp()
+          });
+        }
+
+        showToast(`Data karyawan ${empObj.fullName} (NIK: ${empObj.nik}) berhasil disimpan!`);
+        document.getElementById('input-record-notes').value = '';
+        document.getElementById('input-select-emp').value = '';
+        clearAutoFilledEmployeeIdentity();
+      } catch (err) {
+        console.error(err);
+        showToast("Gagal menyimpan data ke database.", "error");
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+
+    // B. Delete Record (`employee_records`)
+    const handleDeleteRecord = (recordId) => {
+      showConfirmModal(
+        "Hapus Catatan Riwayat?",
+        "Data pencatatan yang dihapus akan hilang secara permanen dari database.",
+        async () => {
+          try {
+            if (IS_PREVIEW === true) {
+              recordsState = recordsState.filter(r => r.recordId !== recordId);
+              renderAllViews();
+            } else {
+              await deleteDoc(doc(db, "employee_records", recordId));
+            }
+            showToast("Catatan riwayat berhasil dihapus.");
+          } catch (err) {
+            showToast("Gagal menghapus catatan.", "error");
+          }
+        }
+      );
+    };
+
+    // C. Add / Edit Master Employee (`employees`) with Unique NIK Validation
+    document.getElementById('form-master-emp').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const editId = document.getElementById('emp-edit-id').value;
+      const nik = document.getElementById('emp-input-nik').value.trim().toUpperCase();
+      const fullName = document.getElementById('emp-input-name').value.trim();
+      const deptId = document.getElementById('emp-input-dept').value;
+      const position = document.getElementById('emp-input-position').value.trim();
+      const password = document.getElementById('emp-input-password').value.trim();
+      const status = document.getElementById('emp-input-status').value;
+
+      const deptObj = departmentsState.find(d => d.deptId === deptId);
+      if (!deptObj) {
+        showToast("Pilih departemen yang valid!", "error");
+        return;
+      }
+
+      // CRITICAL ANTI-DUPLICATE NIK VALIDATION
+      const duplicateNikEmp = employeesState.find(
+        emp => emp.nik.toUpperCase() === nik && emp.empId !== editId
+      );
+      if (duplicateNikEmp) {
+        showToast(`NIK "${nik}" sudah digunakan oleh karyawan ${duplicateNikEmp.fullName}! Gunakan NIK unik lain.`, "error");
+        return;
+      }
+
+      const payload = {
+        nik,
+        fullName,
+        deptId: deptObj.deptId,
+        deptName: deptObj.deptName,
+        position,
+        password,
+        status,
+        updatedAt: formatNowString()
+      };
+
+      try {
+        if (IS_PREVIEW === true) {
+          if (editId) {
+            const idx = employeesState.findIndex(e => e.empId === editId);
+            if (idx !== -1) employeesState[idx] = { empId: editId, ...payload };
+            showToast(`Data karyawan ${fullName} (${nik}) diperbarui.`);
+          } else {
+            employeesState.push({
+              empId: `emp-uid-${Date.now().toString().slice(-4)}`,
+              ...payload
+            });
+            showToast(`Karyawan baru ${fullName} (${nik}) berhasil ditambahkan.`);
+          }
+          renderAllViews();
+        } else {
+          if (editId) {
+            await updateDoc(doc(db, "employees", editId), payload);
+            showToast(`Data karyawan ${fullName} (${nik}) diperbarui di Firestore.`);
+          } else {
+            await addDoc(collection(db, "employees"), payload);
+            showToast(`Karyawan baru ${fullName} (${nik}) tersimpan di Firestore.`);
+          }
+        }
+        resetMasterEmpForm();
+      } catch (err) {
+        console.error(err);
+        showToast("Gagal menyimpan master karyawan.", "error");
+      }
+    });
+
+    const startEditEmployee = (empId) => {
+      const emp = employeesState.find(e => e.empId === empId);
+      if (!emp) return;
+
+      document.getElementById('emp-edit-id').value = emp.empId;
+      document.getElementById('emp-input-nik').value = emp.nik;
+      document.getElementById('emp-input-name').value = emp.fullName;
+      document.getElementById('emp-input-dept').value = emp.deptId;
+      document.getElementById('emp-input-position').value = emp.position;
+      document.getElementById('emp-input-password').value = emp.password;
+      document.getElementById('emp-input-status').value = emp.status || 'Aktif';
+
+      document.getElementById('form-emp-title').textContent = `Edit Karyawan: ${emp.nik}`;
+      document.getElementById('btn-save-emp-text').textContent = "Perbarui Data Karyawan";
+      document.getElementById('btn-cancel-edit-emp').classList.remove('hidden');
+    };
+
+    const resetMasterEmpForm = () => {
+      document.getElementById('form-master-emp').reset();
+      document.getElementById('emp-edit-id').value = '';
+      document.getElementById('form-emp-title').textContent = "Tambah Karyawan Baru";
+      document.getElementById('btn-save-emp-text').textContent = "Simpan Master Karyawan";
+      document.getElementById('btn-cancel-edit-emp').classList.add('hidden');
+    };
+
+    document.getElementById('btn-cancel-edit-emp').addEventListener('click', resetMasterEmpForm);
+
+    const handleDeleteEmployee = (empId) => {
+      const emp = employeesState.find(e => e.empId === empId);
+      if (!emp) return;
+
+      showConfirmModal(
+        "Hapus Master Karyawan?",
+        `Hapus ${emp.fullName} (NIK: ${emp.nik}) dari direktori?`,
+        async () => {
+          try {
+            if (IS_PREVIEW === true) {
+              employeesState = employeesState.filter(e => e.empId !== empId);
+              renderAllViews();
+            } else {
+              await deleteDoc(doc(db, "employees", empId));
+            }
+            showToast(`Karyawan ${emp.fullName} dihapus.`);
+          } catch (err) {
+            showToast("Gagal menghapus karyawan.", "error");
+          }
+        }
+      );
+    };
+
+    // D. Add / Edit Master Department (`departments`)
+    document.getElementById('form-master-dept').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const editId = document.getElementById('dept-edit-id').value;
+      const deptCode = document.getElementById('dept-input-code').value.trim().toUpperCase();
+      const deptName = document.getElementById('dept-input-name').value.trim();
+
+      const payload = {
+        deptCode,
+        deptName,
+        updatedAt: formatNowString()
+      };
+
+      try {
+        if (IS_PREVIEW === true) {
+          if (editId) {
+            const idx = departmentsState.findIndex(d => d.deptId === editId);
+            if (idx !== -1) departmentsState[idx] = { deptId: editId, ...payload };
+            // Also cascade department name update to employees in preview
+            employeesState.forEach(emp => {
+              if (emp.deptId === editId) emp.deptName = deptName;
+            });
+            showToast(`Departemen ${deptName} diperbarui.`);
+          } else {
+            departmentsState.push({
+              deptId: `dept-${Date.now().toString().slice(-4)}`,
+              ...payload
+            });
+            showToast(`Departemen ${deptName} ditambahkan.`);
+          }
+          renderAllViews();
+        } else {
+          if (editId) {
+            await updateDoc(doc(db, "departments", editId), payload);
+            showToast(`Departemen ${deptName} diperbarui.`);
+          } else {
+            await addDoc(collection(db, "departments"), payload);
+            showToast(`Departemen ${deptName} ditambahkan.`);
+          }
+        }
+        resetMasterDeptForm();
+      } catch (err) {
+        showToast("Gagal menyimpan departemen.", "error");
+      }
+    });
+
+    const startEditDepartment = (deptId) => {
+      const dept = departmentsState.find(d => d.deptId === deptId);
+      if (!dept) return;
+      document.getElementById('dept-edit-id').value = dept.deptId;
+      document.getElementById('dept-input-code').value = dept.deptCode;
+      document.getElementById('dept-input-name').value = dept.deptName;
+      document.getElementById('form-dept-title').textContent = `Edit Departemen: ${dept.deptCode}`;
+      document.getElementById('btn-save-dept-text').textContent = "Perbarui Departemen";
+      document.getElementById('btn-cancel-edit-dept').classList.remove('hidden');
+    };
+
+    const resetMasterDeptForm = () => {
+      document.getElementById('form-master-dept').reset();
+      document.getElementById('dept-edit-id').value = '';
+      document.getElementById('form-dept-title').textContent = "Tambah Departemen";
+      document.getElementById('btn-save-dept-text').textContent = "Simpan Departemen";
+      document.getElementById('btn-cancel-edit-dept').classList.add('hidden');
+    };
+
+    document.getElementById('btn-cancel-edit-dept').addEventListener('click', resetMasterDeptForm);
+
+    const handleDeleteDepartment = (deptId) => {
+      const hasEmp = employeesState.some(e => e.deptId === deptId);
+      if (hasEmp) {
+        showToast("Tidak dapat menghapus departemen yang masih memiliki karyawan aktif!", "error");
+        return;
+      }
+
+      showConfirmModal(
+        "Hapus Departemen?",
+        "Departemen yang dihapus tidak akan muncul lagi pada pilihan input.",
+        async () => {
+          try {
+            if (IS_PREVIEW === true) {
+              departmentsState = departmentsState.filter(d => d.deptId !== deptId);
+              renderAllViews();
+            } else {
+              await deleteDoc(doc(db, "departments", deptId));
+            }
+            showToast("Departemen berhasil dihapus.");
+          } catch (err) {
+            showToast("Gagal menghapus departemen.", "error");
+          }
+        }
+      );
+    };
+
+    // =====================================================
+    // 9. AUTHENTICATION FLOW (HYBRID ADMIN & USER)
+    // =====================================================
+    const tabUserBtn = document.getElementById('tab-login-user');
+    const tabAdminBtn = document.getElementById('tab-login-admin');
+    const formUser = document.getElementById('form-login-user');
+    const formAdmin = document.getElementById('form-login-admin');
+
+    const switchLoginTab = (mode) => {
+      if (mode === 'user') {
+        tabUserBtn.className = "py-2.5 px-3 rounded-lg text-xs font-semibold transition-all bg-white text-brand-700 shadow-sm flex items-center justify-center gap-2";
+        tabAdminBtn.className = "py-2.5 px-3 rounded-lg text-xs font-semibold transition-all text-slate-600 hover:text-slate-900 flex items-center justify-center gap-2";
+        formUser.classList.remove('hidden');
+        formAdmin.classList.add('hidden');
+      } else {
+        tabAdminBtn.className = "py-2.5 px-3 rounded-lg text-xs font-semibold transition-all bg-white text-indigo-700 shadow-sm flex items-center justify-center gap-2";
+        tabUserBtn.className = "py-2.5 px-3 rounded-lg text-xs font-semibold transition-all text-slate-600 hover:text-slate-900 flex items-center justify-center gap-2";
+        formAdmin.classList.remove('hidden');
+        formUser.classList.add('hidden');
+      }
+    };
+
+    tabUserBtn.addEventListener('click', () => switchLoginTab('user'));
+    tabAdminBtn.addEventListener('click', () => switchLoginTab('admin'));
+
+    // Demo Autofill Buttons (Only active in Preview Mode)
+    document.getElementById('btn-fill-demo-user').addEventListener('click', () => {
+      switchLoginTab('user');
+      document.getElementById('login-user-nik').value = 'EMP-2026-001';
+      document.getElementById('login-user-pass').value = '123456';
+      showToast("Kredensial Demo Petugas terisi otomatis.", "info");
+    });
+
+    document.getElementById('btn-fill-demo-admin').addEventListener('click', () => {
+      switchLoginTab('admin');
+      document.getElementById('login-admin-email').value = 'admin@simkarya.id';
+      document.getElementById('login-admin-pass').value = 'admin123';
+      showToast("Kredensial Demo Admin HRD terisi otomatis.", "info");
+    });
+
+    // Enter Application Session
+    const enterAppSession = (userObj) => {
+      currentUser = userObj;
+
+      document.getElementById('auth-view').classList.add('hidden');
+      document.getElementById('app-view').classList.remove('hidden');
+
+      document.getElementById('sidebar-user-avatar').textContent = getInitials(userObj.name);
+      document.getElementById('sidebar-user-name').textContent = userObj.name;
+      document.getElementById('sidebar-user-role').textContent =
+        userObj.role === 'admin' ? 'Administrator HRD' : `Petugas (${userObj.nik})`;
+      document.getElementById('dash-welcome-name').textContent = userObj.name;
+
+      // Show/Hide Admin Master Data menu
+      const navMasterDesktop = document.getElementById('nav-master-desktop');
+      const navMasterMobile = document.getElementById('nav-master-mobile');
+      if (userObj.role === 'admin') {
+        navMasterDesktop.classList.remove('hidden');
+        navMasterMobile.classList.remove('hidden');
+      } else {
+        navMasterDesktop.classList.add('hidden');
+        navMasterMobile.classList.add('hidden');
+      }
+
+      if (IS_PREVIEW === false) {
+        startFirestoreListeners();
+      } else {
+        renderAllViews();
+      }
+
+      navigateToSection('dashboard');
+    };
+
+    // Handle User Login (Custom Firestore Collection Validation)
+    formUser.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const nik = document.getElementById('login-user-nik').value.trim().toUpperCase();
+      const pass = document.getElementById('login-user-pass').value.trim();
+
+      if (IS_PREVIEW === true) {
+        const matched = employeesState.find(
+          emp => emp.nik.toUpperCase() === nik && emp.password === pass && emp.status !== 'Nonaktif'
+        );
+        if (!matched) {
+          showToast("NIK atau Password salah, atau akun tidak aktif!", "error");
+          return;
+        }
+        showToast(`Selamat datang, ${matched.fullName}!`);
+        enterAppSession({
+          role: 'user',
+          name: matched.fullName,
+          nik: matched.nik,
+          empId: matched.empId
+        });
+      } else {
+        // Production Mode: Query Firestore `employees` collection directly
+        try {
+          const q = query(
+            collection(db, "employees"),
+            where("nik", "==", nik),
+            where("password", "==", pass)
+          );
+          const snap = await getDocs(q);
+          if (snap.empty) {
+            showToast("NIK atau Password tidak ditemukan pada database!", "error");
+            return;
+          }
+          const empDoc = snap.docs[0];
+          const empData = empDoc.data();
+          if (empData.status === 'Nonaktif') {
+            showToast("Akun karyawan Anda berstatus Nonaktif.", "error");
+            return;
+          }
+          showToast(`Selamat datang, ${empData.fullName}!`);
+          enterAppSession({
+            role: 'user',
+            name: empData.fullName,
+            nik: empData.nik,
+            empId: empDoc.id
+          });
+        } catch (err) {
+          console.error(err);
+          showToast("Gagal memvalidasi kredensial ke Firestore. Pastikan konfigurasi Firebase benar.", "error");
+        }
+      }
+    });
+
+    // Handle Admin Login (Firebase Authentication)
+    formAdmin.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('login-admin-email').value.trim();
+      const pass = document.getElementById('login-admin-pass').value.trim();
+
+      if (IS_PREVIEW === true) {
+        if (email === 'admin@simkarya.id' && pass === 'admin123') {
+          showToast("Login Administrator HRD berhasil (Mode Preview).");
+          enterAppSession({
+            role: 'admin',
+            name: 'Admin HRD',
+            email
+          });
+        } else {
+          showToast("Kredensial Admin Preview salah! Gunakan akun demo di bawah.", "error");
+        }
+      } else {
+        try {
+          const cred = await signInWithEmailAndPassword(auth, email, pass);
+          showToast("Autentikasi Firebase Admin berhasil!");
+          enterAppSession({
+            role: 'admin',
+            name: cred.user.email.split('@')[0],
+            email: cred.user.email
+          });
+        } catch (err) {
+          console.error(err);
+          showToast("Gagal login Firebase Auth: Periksa Email & Password Admin.", "error");
+        }
+      }
+    });
+
+    // Handle Logout
+    const handleLogout = async () => {
+      stopFirestoreListeners();
+      if (IS_PREVIEW === false && auth && auth.currentUser) {
+        try {
+          await signOut(auth);
+        } catch (e) {}
+      }
+      currentUser = null;
+      document.getElementById('app-view').classList.add('hidden');
+      document.getElementById('auth-view').classList.remove('hidden');
+      showToast("Sesi Anda telah diakhiri.", "info");
+    };
+
+    document.getElementById('btn-logout-desktop').addEventListener('click', handleLogout);
+    document.getElementById('btn-logout-mobile').addEventListener('click', handleLogout);
+
+    // =====================================================
+    // 10. NAVIGATION & EVENT BINDINGS
+    // =====================================================
+    const sectionMeta = {
+      dashboard: {
+        title: "Dashboard Ringkasan",
+        subtitle: "Monitoring Direktori & Pencatatan Karyawan Real-Time"
+      },
+      input: {
+        title: "Form Input Data Otomatis",
+        subtitle: "Cascading Dropdown Departemen & Auto-Fill NIK Terverifikasi"
+      },
+      records: {
+        title: "Riwayat Input Data",
+        subtitle: "Log Pencatatan Karyawan Tersinkronisasi Real-Time"
+      },
+      master: {
+        title: "Master Data Karyawan & Departemen",
+        subtitle: "Manajemen Direktori Unik & Struktur Organisasi (Khusus Admin)"
+      }
+    };
+
+    const navigateToSection = (secKey) => {
+      if (secKey === 'master' && (!currentUser || currentUser.role !== 'admin')) {
+        showToast("Halaman Master Data hanya dapat diakses oleh Admin HRD!", "error");
+        return;
+      }
+
+      currentSection = secKey;
+      ['dashboard', 'input', 'records', 'master'].forEach(key => {
+        const el = document.getElementById(`sec-${key}`);
+        if (key === secKey) {
+          el.classList.remove('hidden');
+        } else {
+          el.classList.add('hidden');
+        }
+      });
+
+      document.getElementById('page-title').textContent = sectionMeta[secKey].title;
+      document.getElementById('page-subtitle').textContent = sectionMeta[secKey].subtitle;
+
+      // Highlight active navigation buttons
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        const target = btn.getAttribute('data-nav');
+        if (target === secKey) {
+          btn.classList.add('bg-brand-600', 'text-white', 'shadow-sm');
+          btn.classList.remove('text-slate-600', 'hover:bg-slate-100');
+        } else {
+          btn.classList.remove('bg-brand-600', 'text-white', 'shadow-sm');
+          btn.classList.add('text-slate-600', 'hover:bg-slate-100');
+        }
+      });
+    };
+
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        navigateToSection(btn.getAttribute('data-nav'));
+      });
+    });
+
+    document.getElementById('header-quick-input').addEventListener('click', () => navigateToSection('input'));
+    document.getElementById('dash-cta-input').addEventListener('click', () => navigateToSection('input'));
+    document.getElementById('dash-view-all-records').addEventListener('click', () => navigateToSection('records'));
+
+    // Cascading Dropdown Event Listeners
+    document.getElementById('input-select-dept').addEventListener('change', () => {
+      updateCascadingEmployeeDropdown(false);
+    });
+
+    document.getElementById('input-select-emp').addEventListener('change', () => {
+      handleEmployeeSelectionAutoFill(true);
+    });
+
+    document.getElementById('btn-reset-autofill-form').addEventListener('click', () => {
+      document.getElementById('form-cascading-input').reset();
+      setDefaultDateInput();
+      updateCascadingEmployeeDropdown(false);
+      showToast("Formulir telah di-reset.", "info");
+    });
+
+    // History Filters Event Listeners
+    document.getElementById('filter-record-search').addEventListener('input', renderRecordsHistory);
+    document.getElementById('filter-record-dept').addEventListener('change', renderRecordsHistory);
+    document.getElementById('filter-record-cat').addEventListener('change', renderRecordsHistory);
+
+    // Master Search & Sub-tabs
+    document.getElementById('master-emp-search').addEventListener('input', renderMasterEmployees);
+
+    const subtabEmp = document.getElementById('subtab-btn-emp');
+    const subtabDept = document.getElementById('subtab-btn-dept');
+    const panelEmp = document.getElementById('master-panel-emp');
+    const panelDept = document.getElementById('master-panel-dept');
+
+    subtabEmp.addEventListener('click', () => {
+      subtabEmp.className = "px-4 py-2 rounded-xl text-xs font-bold bg-brand-600 text-white shadow-sm transition";
+      subtabDept.className = "px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition";
+      panelEmp.classList.remove('hidden');
+      panelDept.classList.add('hidden');
+    });
+
+    subtabDept.addEventListener('click', () => {
+      subtabDept.className = "px-4 py-2 rounded-xl text-xs font-bold bg-brand-600 text-white shadow-sm transition";
+      subtabEmp.className = "px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition";
+      panelDept.classList.remove('hidden');
+      panelEmp.classList.add('hidden');
+    });
+
+    // Initialize Application on Load
+    setupEnvironmentUI();
+    setDefaultDateInput();
+    if (IS_PREVIEW === false && auth) {
+      onAuthStateChanged(auth, (user) => {
+        if (user) {
+          enterAppSession({
+            role: 'admin',
+            name: user.email.split('@')[0],
+            email: user.email
+          });
+        }
+      });
+    }
+  </script>
+</body>
+</html>
